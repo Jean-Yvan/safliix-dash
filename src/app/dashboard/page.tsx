@@ -65,6 +65,41 @@ export default function Home(){
 							<span className="ml-2">Export Report</span>
 						</button>
 					</div>
+				</div>
+				<div className="stats shadow mt-7 gap-5">
+					<div className="stat bg-neutral">
+						<div className="stat-title flex items-center gap-3">
+							<span>Revenu total du mois</span>
+							<div className="rounded-full w-8 h-8 p-3 bg-primary flex items-center justify-center text-lg">f</div>
+						</div>
+						<div className="stat-value text-primary">1.250.000</div>
+						<div className="stat-desc">comparé au mois passé</div>
+					</div>
+					<div className="stat bg-neutral">
+						<div className="stat-title flex items-center gap-3">
+							<span>Revenu total du mois</span>
+							<div className="rounded-full w-8 h-8 p-3 bg-primary flex items-center justify-center text-lg">f</div>
+						</div>
+						<div className="stat-value text-primary">1.250.000</div>
+						<div className="stat-desc">comparé au mois passé</div>
+					</div>
+					<div className="stat bg-neutral">
+						<div className="stat-title flex items-center gap-3">
+							<span>Revenu total du mois</span>
+							<div className="rounded-full w-8 h-8 p-3 bg-primary flex items-center justify-center text-lg">f</div>
+						</div>
+						<div className="stat-value text-primary">1.250.000</div>
+						<div className="stat-desc">comparé au mois passé</div>
+					</div>
+					<div className="stat bg-neutral">
+						<div className="stat-title flex items-center gap-3">
+							<span>Revenu total du mois</span>
+							<div className="rounded-full w-8 h-8 p-3 bg-primary flex items-center justify-center text-lg">f</div>
+						</div>
+						<div className="stat-value text-primary">1.250.000</div>
+						<div className="stat-desc">comparé au mois passé</div>
+					</div>		
+					
 				</div>				
 			</div>
     );

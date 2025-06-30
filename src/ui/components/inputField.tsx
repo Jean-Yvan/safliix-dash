@@ -39,7 +39,7 @@ export default function InputField({
         onFocus={onFocus}
         onKeyDown={onKeyDown}
         autoComplete="off"
-        className={`p-2 pr-10 border rounded  focus:outline-none focus:ring-2 focus:ring-red-800 text-[#F0EDED] w-full ${className} ${
+        className={`p-2 pr-10 border rounded  focus:outline-none focus:ring-2 focus:ring-primary text-[#F0EDED] w-full ${className} ${
           error ? "border-red-500" : "border-gray-300"
         }`}
       />
