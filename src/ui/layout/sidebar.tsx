@@ -11,7 +11,8 @@ import {
   BarChart2,
   Megaphone,
   Shield,
-  Settings
+  Settings,
+  Monitor
 } from "lucide-react";
 import Link from "next/link";
 
@@ -23,8 +24,9 @@ const items = [
   { href: "/dashboard/subscriptions", label: "Abonnement", icon: CreditCard },
   { href: "/dashboard/stats", label: "Statistique",submenus:[
     { href: "/dashboard/stats/films", label: "Films", icon: Film },
-    { href: "/dashboard/stats/series", label: "Séries", icon: Clapperboard },
+    { href: "/dashboard/stats/revenu", label: "Revenu", icon: Clapperboard },
     { href: "/dashboard/stats/users", label: "Utilisateurs", icon: Users },
+    { href: "/dashboard/stats/pub", label: "Pub", icon: Monitor },
   ], icon: BarChart2 },
   { href: "/dashboard/pub", label: "Pub", icon: Megaphone },
   { href: "/dashboard/security", label: "Sécurité", icon: Shield },

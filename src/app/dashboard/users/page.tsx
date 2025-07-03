@@ -1,16 +1,11 @@
+'use client';
+
 import Header from "@/ui/components/header";
+import DataTable from "@/ui/components/dataTable";
+import { Person,columns } from "./mapper";
 
 
-type Person = {
-  nom: string;
-  numero: number;
-  tel: string;
-  mail: string;
-  status: 'actif' | 'inactif';
-  genre: 'H' | 'F' | '-';
-  date: string; // ex: '2025-06-30'
-  imgProfileUrl: string;
-};
+
 
 const personnes: Person[] = [
   {
@@ -171,80 +166,8 @@ export default function Page() {
     <div className="">
       <Header title="Utilisateurs"/>
       <div className="mt-4">
-        <div className="bg-neutral shadow-base-200 shadow-xl">
-        
-          <table className="table table-zebra text-sm">
-            {/* head */}
-            <thead className="bg-base-200">
-              <tr>
-                <th>
-                  <label>
-                    <input type="checkbox" className="checkbox" />
-                  </label>
-                </th>
-                <th className="text-primary">NOM</th>
-                <th className="text-primary">NUMERO</th>
-                <th className="text-primary">TEL</th>
-                <th className="text-primary">MAIL</th>
-                <th className="text-primary">STATUS</th>
-                <th className="text-primary">GENRE</th>
-                <th className="text-primary">TOP USER</th>
-                <th className="text-primary">DATE</th>
-                <th className="text-primary">ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {personnes.map((person,index) => (
-                <tr>
-                  <th>
-                    <label>
-                      <input type="checkbox" className="checkbox" />
-                    </label>
-                  </th>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div className="avatar">
-                        <div className="mask mask-squircle h-12 w-12">
-                          <img
-                            src={person.imgProfileUrl}
-                            alt={person.nom}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="font-bold">{person.nom}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td >{person.numero}</td>
-                  <td className="text-primary">{person.tel}</td>
-                  <td className="text-primary">{person.mail}</td>
-                  <td>
-                    <span className={`badge ${person.status === 'actif' ? 'badge-success' : 'badge-error'}`}>
-                      {person.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="badge badge-ghost badge-sm">{person.genre}</span>
-                  </td>
-                  <td>
-                    {person.numero <= 3 ? (
-                      <span className="badge badge-primary">Top</span>
-                    ) : (
-                      <span className="badge badge-ghost">-</span>
-                    )}
-                  </td>
-                  <td>{person.date}</td>
-                  <td>
-                    <button className="btn btn-ghost btn-xs">Détails</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        
+       <DataTable data={personnes} columns={columns} />
       </div>
-    </div>
   </div>
 );
 } 
