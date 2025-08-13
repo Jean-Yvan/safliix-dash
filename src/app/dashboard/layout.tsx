@@ -8,7 +8,7 @@ export default function Layout({children}: Readonly<{ children: React.ReactNode 
   return (
     <div className="flex min-h-screen relative">
           {/* Sidebar */}
-          <aside className="fixed top-0 left-0 bottom-0 w-56 bg-[#2F2F2F] p-4">
+          <aside className="fixed top-0 left-0 bottom-0 w-56 bg-[#2F2F2F] p-4 flex justify-center">
             <Sidebar />
           </aside>
 
