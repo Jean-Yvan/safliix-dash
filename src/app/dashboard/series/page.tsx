@@ -23,8 +23,8 @@ export default function Page() {
                         <FilterBtn title="Durée" />
                     </div>
 
-                    <Link className="btn btn-primary " href={"/dashboard/films/add"}>
-                        Ajouter un film
+                    <Link className="btn btn-primary " href={"/dashboard/series/add"}>
+                        Ajouter un une série
                     </Link>
 
                 </div>

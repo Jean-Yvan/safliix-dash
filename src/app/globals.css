@@ -3,8 +3,9 @@
 @plugin "daisyui/theme" {
   name: "mytheme";
   default: true; /* set as default */
-  prefersdark: false; /* set as default dark mode (prefers-color-scheme:dark) */
-  color-scheme: light; /* color of browser-provided UI */
+  prefers-dark: true;
+  color-scheme: dark; /* set as default dark mode (prefers-color-scheme:dark) */
+  
 
   --color-base-100: rgba(2, 2, 2, 1);
   --color-base-200: rgba(2, 2, 2, 0.8);
@@ -43,5 +44,11 @@
   --depth: 1;
   --noise: 0;
 }
+
+:root {
+  color-scheme: dark !important;
+}
+
+ 
 
 

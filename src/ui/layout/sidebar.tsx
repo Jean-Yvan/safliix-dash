@@ -100,15 +100,15 @@ const SidebarItem = ({
       )}
       {/* Render submenu if available */}
       {hasSubmenus && (
-        <ul className="ml-8 mt-2 space-y-1">
+        <ul className="ml-8 mt-2">
           {submenus.map((submenu, idx) => {
             const SubIcon = submenu.icon;
             const subActive = pathname === submenu.href || pathname.startsWith(submenu.href);
             return (
-              <li key={idx}>
+              <li key={idx} className="">
                 <a
                   href={submenu.href}
-                  className={`flex items-center gap-2 px-3 py-1 rounded transition-colors ${
+                  className={`flex items-center gap-2 py-1 rounded transition-colors ${
                     subActive ? "text-primary font-semibold" : "hover:text-white"
                   }`}
                 >
@@ -130,8 +130,8 @@ const SidebarItem = ({
 export default function Sidebar() {
 	const pathname = usePathname();
   return (
-    <div className="w-64 h-full p-4">
-      <ul className="menu w-56">
+    <div className="w-64 h-full ">
+      <ul className="menu w-56 border-l border-t border-b  border-gray-700 rounded-xl flex flex-col gap-2">
 				{items.map((item,index) => <SidebarItem 
 					key={index} 
 					href={item.href}
