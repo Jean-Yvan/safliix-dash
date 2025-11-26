@@ -1,4 +1,5 @@
 import { ColumnConfig } from "@/ui/components/dataTable";
+import Link from "next/link";
 
 
 export type Person = {
@@ -17,7 +18,7 @@ export const columns : ColumnConfig<Person>[] = [
     key: 'nom',
     header: 'NOM',
     render: (person : Person) => (
-      <div className="flex items-center gap-3">
+      <Link href={`/dashboard/users/${person.numero}`} className="flex items-center gap-3 hover:text-primary">
         <div className="avatar">
           <div className="mask mask-squircle h-12 w-12">
             <img src={person.imgProfileUrl} alt={person.nom} />
@@ -25,8 +26,9 @@ export const columns : ColumnConfig<Person>[] = [
         </div>
         <div>
           <div className="font-bold">{person.nom}</div>
+          <p className="text-xs text-primary">Voir les détails</p>
         </div>
-      </div>
+      </Link>
     ),
   },
   { key: 'numero', header: 'NUMERO' },

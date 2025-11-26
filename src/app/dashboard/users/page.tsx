@@ -4,9 +4,9 @@ import Header from "@/ui/components/header";
 import DataTable from "@/ui/components/dataTable";
 import { Person,columns } from "./mapper";
 
+const placeholderAvatar = "/gildas.png";
 
-
-
+// Dummy dataset kept local; avoid remote fetch failures.
 const personnes: Person[] = [
   {
     nom: 'Jean Dupont',
@@ -16,7 +16,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'H',
     date: '2025-06-01',
-    imgProfileUrl: 'https://example.com/profiles/jean.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Amina Sow',
@@ -26,7 +26,7 @@ const personnes: Person[] = [
     status: 'inactif',
     genre: 'F',
     date: '2025-05-20',
-    imgProfileUrl: 'https://example.com/profiles/amina.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Alex Tounkara',
@@ -36,7 +36,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: '-',
     date: '2025-06-15',
-    imgProfileUrl: 'https://example.com/profiles/alex.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Fatoumata Diallo',
@@ -46,7 +46,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'F',
     date: '2025-04-18',
-    imgProfileUrl: 'https://example.com/profiles/fatoumata.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Mohamed Keita',
@@ -56,7 +56,7 @@ const personnes: Person[] = [
     status: 'inactif',
     genre: 'H',
     date: '2025-03-12',
-    imgProfileUrl: 'https://example.com/profiles/mohamed.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Chloe Zinsou',
@@ -66,7 +66,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'F',
     date: '2025-05-30',
-    imgProfileUrl: 'https://example.com/profiles/chloe.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Kevin Hounkpati',
@@ -76,7 +76,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'H',
     date: '2025-06-20',
-    imgProfileUrl: 'https://example.com/profiles/kevin.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Brigitte Akakpo',
@@ -86,7 +86,7 @@ const personnes: Person[] = [
     status: 'inactif',
     genre: 'F',
     date: '2025-01-22',
-    imgProfileUrl: 'https://example.com/profiles/brigitte.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Nina Yovo',
@@ -96,7 +96,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'F',
     date: '2025-06-11',
-    imgProfileUrl: 'https://example.com/profiles/nina.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Emile Dossou',
@@ -106,7 +106,7 @@ const personnes: Person[] = [
     status: 'inactif',
     genre: 'H',
     date: '2025-02-10',
-    imgProfileUrl: 'https://example.com/profiles/emile.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Sophie Gandonou',
@@ -116,7 +116,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'F',
     date: '2025-06-05',
-    imgProfileUrl: 'https://example.com/profiles/sophie.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Mike Agossou',
@@ -126,7 +126,7 @@ const personnes: Person[] = [
     status: 'inactif',
     genre: 'H',
     date: '2025-03-25',
-    imgProfileUrl: 'https://example.com/profiles/mike.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Laura Toko',
@@ -136,7 +136,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'F',
     date: '2025-04-01',
-    imgProfileUrl: 'https://example.com/profiles/laura.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Pascal Boko',
@@ -146,7 +146,7 @@ const personnes: Person[] = [
     status: 'actif',
     genre: 'H',
     date: '2025-06-10',
-    imgProfileUrl: 'https://example.com/profiles/pascal.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
   {
     nom: 'Cynthia Mensah',
@@ -156,7 +156,7 @@ const personnes: Person[] = [
     status: 'inactif',
     genre: '-',
     date: '2025-02-28',
-    imgProfileUrl: 'https://example.com/profiles/cynthia.jpg',
+    imgProfileUrl: placeholderAvatar,
   },
 ];
 

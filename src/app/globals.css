@@ -9,7 +9,8 @@
 
   --color-base-100: rgba(2, 2, 2, 1);
   --color-base-200: rgba(2, 2, 2, 0.8);
-  --color-base-300: rgba(246,170,2,0.6);
+  /* base-300 is used for borders; keep it light to stay discreet on dark bg */
+  --color-base-300: rgba(204, 204, 204, 0.18);
   --color-base-content: rgba(255, 255, 255, 0.7);
   --color-primary: rgba(0, 146, 93, 1);
   --color-primary-content: rgba(47, 47, 47, 1);
@@ -40,6 +41,9 @@
   /* border size */
   --border: 1px;
 
+  /* border color */
+  --border-base: rgba(204, 204, 204, 1);
+
   /* effects */
   --depth: 1;
   --noise: 0;
@@ -50,5 +54,3 @@
 }
 
  
-
-

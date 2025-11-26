@@ -1,4 +1,7 @@
 import Header from "@/ui/components/header";
+import Link from "next/link";
+
+const placeholderAvatar = "/gildas.png";
 
 type Transaction = {
   profile: string;
@@ -89,7 +92,16 @@ const transactions: Transaction[] = [
 export default function Page() {
   return (
     <div>
-      <Header title="Abonnements"/>
+      <Header title="Abonnements" className="rounded-2xl border border-base-300 px-5 py-3">
+        <Link href="/dashboard/subscriptions/new" className="btn btn-primary btn-sm rounded-full">
+          Créer un plan
+        </Link>
+      </Header>
+      <div className="mb-3 flex items-center gap-2">
+        <Link href="/dashboard/subscriptions/plans" className="btn btn-ghost btn-sm border-base-300 rounded-full">
+          Voir les plans
+        </Link>
+      </div>
       <div className="mt-4 bg-neutral shadow-base-200 shadow-xl">
         <table className="table table-zebra text-sm">
           {/* head */}
@@ -113,7 +125,7 @@ export default function Page() {
                     <div className="avatar">
                       <div className="mask mask-squircle h-12 w-12">
                         <img
-                          src={`https://api.adorable.io/avatars/285/${transaction.profile}.png`}
+                          src={placeholderAvatar}
                           alt={transaction.profile}
                         />
                       </div>
