@@ -3,170 +3,67 @@
 import Header from "@/ui/components/header";
 import DataTable from "@/ui/components/dataTable";
 import { Person,columns } from "./mapper";
+import { useEffect, useState } from "react";
+import { usersApi } from "@/lib/api/users";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { formatApiError } from "@/lib/api/errors";
+import { useToast } from "@/ui/components/toast/ToastProvider";
 
 const placeholderAvatar = "/gildas.png";
 
-// Dummy dataset kept local; avoid remote fetch failures.
-const personnes: Person[] = [
-  {
-    nom: 'Jean Dupont',
-    numero: 1,
-    tel: '+22961234567',
-    mail: 'jean.dupont@example.com',
-    status: 'actif',
-    genre: 'H',
-    date: '2025-06-01',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Amina Sow',
-    numero: 2,
-    tel: '+22967239876',
-    mail: 'amina.sow@example.com',
-    status: 'inactif',
-    genre: 'F',
-    date: '2025-05-20',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Alex Tounkara',
-    numero: 3,
-    tel: '+22965987654',
-    mail: 'alex.tounkara@example.com',
-    status: 'actif',
-    genre: '-',
-    date: '2025-06-15',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Fatoumata Diallo',
-    numero: 4,
-    tel: '+22969112233',
-    mail: 'fatou.diallo@example.com',
-    status: 'actif',
-    genre: 'F',
-    date: '2025-04-18',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Mohamed Keita',
-    numero: 5,
-    tel: '+22968223344',
-    mail: 'mohamed.keita@example.com',
-    status: 'inactif',
-    genre: 'H',
-    date: '2025-03-12',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Chloe Zinsou',
-    numero: 6,
-    tel: '+22969445566',
-    mail: 'chloe.zinsou@example.com',
-    status: 'actif',
-    genre: 'F',
-    date: '2025-05-30',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Kevin Hounkpati',
-    numero: 7,
-    tel: '+22969998877',
-    mail: 'kevin.hounkpati@example.com',
-    status: 'actif',
-    genre: 'H',
-    date: '2025-06-20',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Brigitte Akakpo',
-    numero: 8,
-    tel: '+22964556677',
-    mail: 'brigitte.akakpo@example.com',
-    status: 'inactif',
-    genre: 'F',
-    date: '2025-01-22',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Nina Yovo',
-    numero: 9,
-    tel: '+22962334455',
-    mail: 'nina.yovo@example.com',
-    status: 'actif',
-    genre: 'F',
-    date: '2025-06-11',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Emile Dossou',
-    numero: 10,
-    tel: '+22961225544',
-    mail: 'emile.dossou@example.com',
-    status: 'inactif',
-    genre: 'H',
-    date: '2025-02-10',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Sophie Gandonou',
-    numero: 11,
-    tel: '+22965557799',
-    mail: 'sophie.gandonou@example.com',
-    status: 'actif',
-    genre: 'F',
-    date: '2025-06-05',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Mike Agossou',
-    numero: 12,
-    tel: '+22966889900',
-    mail: 'mike.agossou@example.com',
-    status: 'inactif',
-    genre: 'H',
-    date: '2025-03-25',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Laura Toko',
-    numero: 13,
-    tel: '+22967112244',
-    mail: 'laura.toko@example.com',
-    status: 'actif',
-    genre: 'F',
-    date: '2025-04-01',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Pascal Boko',
-    numero: 14,
-    tel: '+22967990011',
-    mail: 'pascal.boko@example.com',
-    status: 'actif',
-    genre: 'H',
-    date: '2025-06-10',
-    imgProfileUrl: placeholderAvatar,
-  },
-  {
-    nom: 'Cynthia Mensah',
-    numero: 15,
-    tel: '+22968110022',
-    mail: 'cynthia.mensah@example.com',
-    status: 'inactif',
-    genre: '-',
-    date: '2025-02-28',
-    imgProfileUrl: placeholderAvatar,
-  },
-];
-
-
 export default function Page() {
+  const [personnes, setPersonnes] = useState<Person[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const accessToken = useAccessToken();
+  const toast = useToast();
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await usersApi.list({ page: 1, pageSize: 20 }, accessToken);
+        if (cancelled) return;
+        const mapped: Person[] = res.items.map((u, idx) => ({
+          nom: u.name,
+          numero: idx + 1,
+          tel: u.phone || "",
+          mail: u.email || "",
+          status: (u.status || "").toLowerCase(),
+          genre: "-",
+          date: u.createdAt || "",
+          imgProfileUrl: u.avatar || placeholderAvatar,
+        }));
+        setPersonnes(mapped);
+      } catch (err) {
+        if (cancelled || controller.signal.aborted) return;
+        const friendly = formatApiError(err);
+        setError(friendly.message);
+        toast.error({ title: "Utilisateurs", description: friendly.message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [accessToken, toast]);
+
   return (
     <div className="">
       <Header title="Utilisateurs"/>
+      {loading && <div className="alert alert-info text-sm mt-3">Chargement des utilisateurs...</div>}
+      {error && <div className="alert alert-error text-sm mt-3">{error}</div>}
       <div className="mt-4">
        <DataTable data={personnes} columns={columns} />
+       {!loading && !error && personnes.length === 0 && (
+        <p className="text-sm text-white/70 mt-3">Aucun utilisateur.</p>
+       )}
       </div>
   </div>
 );

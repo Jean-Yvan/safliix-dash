@@ -1,10 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download,AlertCircle } from 'lucide-react';
+import { reportsApi } from '@/lib/api/reports';
+import { useAccessToken } from '@/lib/auth/useAccessToken';
+import { formatApiError } from '@/lib/api/errors';
+import { useToast } from '@/ui/components/toast/ToastProvider';
+
+type ReportItem = { id: string; name: string; status?: string };
 
 const ReportSelectionCard = () => {
   const [selectedReports, setSelectedReports] = useState<string[]>([]);
+  const [reports, setReports] = useState<ReportItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const accessToken = useAccessToken();
+  const toast = useToast();
 
   const toggleReport = (report: string) => {
     setSelectedReports(prev => 
@@ -14,22 +26,47 @@ const ReportSelectionCard = () => {
     );
   };
 
-  const reports = [
-    { id: 'finances', label: 'Finances', description: 'Rapport détaillé des finances' },
-    { id: 'users', label: 'Utilisateurs', description: 'Rapport détaillé des utilisateurs' },
-    { id: 'movies', label: 'Films', description: 'Rapport détaillé des films' },
-    { id: 'series', label: 'Série', description: 'Rapport détaillé des séries' },
-    { id: 'ads', label: 'Pub', description: 'Rapport détaillé des pubs' },
-  ];
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await reportsApi.list(accessToken);
+        if (cancelled) return;
+        setReports(res.items);
+      } catch (err) {
+        if (cancelled) return;
+        const friendly = formatApiError(err);
+        setError(friendly.message);
+        toast.error({ title: "Rapports", description: friendly.message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [accessToken, toast]);
+
+  const handleGenerate = async () => {
+    if (!selectedReports.length) return;
+    setGenerating(true);
+    try {
+      await reportsApi.download(selectedReports[0], accessToken); // Placeholder: first selected
+      toast.success({ title: "Rapports", description: "Téléchargement démarré." });
+    } catch (err) {
+      const friendly = formatApiError(err);
+      toast.error({ title: "Rapports", description: friendly.message });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="p-2 bg-neutral mx-2">
-      {/* Card Container */}
       <div className="rounded-xl shadow-lg overflow-hidden">
-        {/* Card Header */}
         <div className="text-primary-content p-6">
           <h1 className="text-2xl font-bold text-primary">Exportation rapport général</h1>
-    
         </div>
         <div className='bg-white p-4  text-black rounded-xl flex items-center gap-2'>
           <AlertCircle className='w-10 h-10 text-primary'/>
@@ -37,8 +74,9 @@ const ReportSelectionCard = () => {
             <h4 className='text-bold'>Important</h4>
             <p className="">Veuillez sélectionner uniquement les rapports que vous souhaitez intégrer dans votre rapport général</p>
           </div>
-        </div>{/* Card Body */}
-        {/* Reports List */}
+        </div>
+        {loading && <div className="alert alert-info text-sm mt-3 mx-4">Chargement des rapports...</div>}
+        {error && <div className="alert alert-error text-sm mt-3 mx-4">{error}</div>}
         <div className="divide-y divide-gray-300">
           {reports.map((report) => (
             <div 
@@ -52,8 +90,8 @@ const ReportSelectionCard = () => {
                 <div className="flex items-center">
                   <Download className="w-10 h-8 mr-2 text-primary" />
                   <div>
-                    <h2 className="text-lg font-semibold">{report.label}</h2>
-                    <p className="text-sm opacity-75">{report.description}</p>
+                    <h2 className="text-lg font-semibold">{report.name}</h2>
+                    <p className="text-sm opacity-75">{report.status || ""}</p>
                   </div>
                   
                 </div>
@@ -68,15 +106,17 @@ const ReportSelectionCard = () => {
               
             </div>
           ))}
+          {!loading && !error && reports.length === 0 && (
+            <div className="p-4 text-sm text-white/70">Aucun rapport disponible.</div>
+          )}
         </div>
-
-        {/* Card Footer */}
         <div className="bg-base-300 p-4 flex justify-end">
           <button 
             className="btn btn-primary"
-            disabled={selectedReports.length === 0}
+            disabled={selectedReports.length === 0 || generating}
+            onClick={handleGenerate}
           >
-            Générer le rapport ({selectedReports.length})
+            {generating ? "Génération..." : `Générer le rapport (${selectedReports.length})`}
           </button>
         </div>
       </div>

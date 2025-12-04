@@ -2,25 +2,66 @@
 
 import Header from "@/ui/components/header";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { plansApi } from "@/lib/api/subscriptions";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { formatApiError } from "@/lib/api/errors";
+import { useToast } from "@/ui/components/toast/ToastProvider";
 
 type Plan = {
   id: string;
   name: string;
-  price: string;
-  currency: string;
+  price: number;
+  currency?: string;
   billing: string;
-  devices: number;
-  quality: string;
-  status: "Actif" | "Archivé";
+  devices?: number;
+  quality?: string;
+  status?: string;
 };
 
-const plans: Plan[] = [
-  { id: "plan-1", name: "Starter", price: "1 500", currency: "XOF", billing: "mensuel", devices: 1, quality: "HD", status: "Actif" },
-  { id: "plan-2", name: "Family", price: "4 500", currency: "XOF", billing: "mensuel", devices: 4, quality: "Full HD", status: "Actif" },
-  { id: "plan-3", name: "Premium", price: "7 000", currency: "XOF", billing: "mensuel", devices: 6, quality: "4K", status: "Archivé" },
-];
-
 export default function Page() {
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const accessToken = useAccessToken();
+  const toast = useToast();
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await plansApi.list({ page: 1, pageSize: 20 }, accessToken);
+        if (cancelled) return;
+        const mapped = res.items.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          currency: p.currency || "XOF",
+          billing: p.period,
+          devices: p.devices,
+          quality: p.quality,
+          status: p.status,
+        }));
+        setPlans(mapped);
+      } catch (err) {
+        if (cancelled || controller.signal.aborted) return;
+        const friendly = formatApiError(err);
+        setError(friendly.message);
+        toast.error({ title: "Plans", description: friendly.message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [accessToken, toast]);
+
   return (
     <div className="space-y-5">
       <Header title="Plans d'abonnement" className="rounded-2xl border border-base-300 px-5 py-3">
@@ -33,6 +74,9 @@ export default function Page() {
           </Link>
         </div>
       </Header>
+
+      {loading && <div className="alert alert-info text-sm">Chargement des plans...</div>}
+      {error && <div className="alert alert-error text-sm">{error}</div>}
 
       <div className="bg-neutral rounded-2xl border border-base-300 p-4 space-y-3">
         <div className="grid grid-cols-6 text-xs uppercase text-white/50 px-2">
@@ -48,9 +92,9 @@ export default function Page() {
             <div key={plan.id} className="grid grid-cols-6 items-center text-sm text-white/80 px-2 py-3">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-white">{plan.name}</span>
-                <span className={`badge ${plan.status === "Actif" ? "badge-success" : "badge-ghost"}`}>{plan.status}</span>
+                <span className={`badge ${plan.status === "Actif" ? "badge-success" : "badge-ghost"}`}>{plan.status || "—"}</span>
               </div>
-              <span>{plan.price} {plan.currency}</span>
+              <span>{plan.price} {plan.currency || "XOF"}</span>
               <span>{plan.billing}</span>
               <span>{plan.devices}</span>
               <span>{plan.quality}</span>
@@ -61,6 +105,9 @@ export default function Page() {
               </div>
             </div>
           ))}
+          {!loading && !error && plans.length === 0 && (
+            <div className="px-2 py-4 text-sm text-white/70">Aucun plan disponible.</div>
+          )}
         </div>
       </div>
     </div>

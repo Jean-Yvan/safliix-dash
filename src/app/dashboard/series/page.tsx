@@ -5,7 +5,11 @@ import VideoCard from "@/ui/specific/films/components/videoCard";
 import FilterBtn from "@/ui/components/filterBtn";
 import { Download } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { seriesApi } from "@/lib/api/series";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { formatApiError } from "@/lib/api/errors";
+import { useToast } from "@/ui/components/toast/ToastProvider";
 
 export default function Page() {
 	const mode: "location" | "abonnement" = "abonnement";
@@ -20,48 +24,37 @@ export default function Page() {
 		[]
 	);
 
-	const series = [
-		{
-			id: "s1",
-			title: "Au fil du temps",
-			status: "Actif",
-			director: "SFLIX",
-			dp: "Gildas",
-			number: "20582",
-			category: "Documentaire",
-			poster: "/elegbara.png",
-			hero: "/elegbara.png",
-			stats: { locations: 234, revenue: "23k f" },
-			stars: 4,
-			geo: [
-				{ label: "France", value: 5000, max: 10000, color: "progress-success" },
-				{ label: "Togo", value: 7000, max: 10000, color: "progress-error" },
-				{ label: "Bénin", value: 10000, max: 10000, color: "progress-primary" },
-				{ label: "Sénégal", value: 1000, max: 10000, color: "progress-warning" },
-			],
-			donut: { catalog: 2, viewed: 98, revenue: "150 $" },
-		},
-		{
-			id: "s2",
-			title: "Au fil du temps",
-			status: "Actif",
-			director: "SFLIX",
-			dp: "Gildas",
-			number: "20582",
-			category: "Documentaire",
-			poster: "/elegbara.png",
-			hero: "/elegbara.png",
-			stats: { locations: 234, revenue: "23k f" },
-			stars: 4,
-			geo: [
-				{ label: "France", value: 5000, max: 10000, color: "progress-success" },
-				{ label: "Togo", value: 7000, max: 10000, color: "progress-error" },
-				{ label: "Bénin", value: 10000, max: 10000, color: "progress-primary" },
-				{ label: "Sénégal", value: 1000, max: 10000, color: "progress-warning" },
-			],
-			donut: { catalog: 2, viewed: 98, revenue: "150 $" },
-		},
-	];
+	const accessToken = useAccessToken();
+	const [series, setSeries] = useState<any[]>([]);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const toast = useToast();
+
+	useEffect(() => {
+		let cancelled = false;
+		const controller = new AbortController();
+		const load = async () => {
+			setLoading(true);
+			setError(null);
+			try {
+				const res = await seriesApi.list({ page: 1, pageSize: 10 }, accessToken);
+				if (cancelled) return;
+				setSeries(res.items);
+			} catch (err) {
+				if (cancelled || controller.signal.aborted) return;
+				const friendly = formatApiError(err);
+				setError(friendly.message);
+				toast.error({ title: "Séries", description: friendly.message });
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		};
+		load();
+		return () => {
+			cancelled = true;
+			controller.abort();
+		};
+	}, [accessToken, toast]);
 
     return (
       <div className="space-y-5">
@@ -93,6 +86,9 @@ export default function Page() {
           </div>
         </div>
 
+        {loading && <div className="alert alert-info text-sm">Chargement des séries...</div>}
+        {error && <div className="alert alert-error text-sm">{error}</div>}
+
         <div className="space-y-4">
           {series.map((serie) => (
             <VideoCard
@@ -102,6 +98,9 @@ export default function Page() {
               detailHref={`/dashboard/series/detail/${serie.id}`}
             />
           ))}
+          {!loading && !error && series.length === 0 && (
+            <div className="text-sm text-white/70">Aucune série à afficher.</div>
+          )}
         </div>
         <div className="flex items-center gap-2 text-sm text-white/70">
           <button className="btn btn-ghost btn-xs">◀</button>

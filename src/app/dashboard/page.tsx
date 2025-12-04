@@ -3,10 +3,29 @@ import BackgroundImg from "@/ui/components/backgroundImg";
 import MonthlyStatsChart from "@/ui/specific/stats/components/barChart";
 import { Banknote, Clock, Download, Flag, Lightbulb, Package, Play, PlayCircle, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useDashboardData } from "@/lib/hooks/useDashboardData";
 
 export default function Home(){
 		const router = useRouter();
-		const statCards = [
+		const { metrics, highlights, loading, error, refetch } = useDashboardData();
+
+		const formatNumber = (value: number | undefined) => {
+			if (value === undefined || value === null) return "-";
+			return value.toLocaleString("fr-FR");
+		};
+
+		const formatTrend = (value: number | undefined) => {
+			if (value === undefined || value === null) return "";
+			const rounded = Number.isInteger(value) ? value : Number(value).toFixed(2);
+			return `${value > 0 ? "+" : ""}${rounded}%`;
+		};
+
+		const trendTone = (value: number | undefined) => {
+			if (value === undefined || value === null) return "muted" as const;
+			return value >= 0 ? "success" : "error";
+		};
+
+		const fallbackStatCards = [
 			{ title: "Revenu total du mois", value: "1.250.000", trend: "+18.08%", trendTone: "success", desc: "comparé au mois passé", badgeIcon: Banknote },
 			{ title: "Nouveaux utilisateurs", value: "23", trend: "+18.98%", trendTone: "success", desc: "comparé au mois passé", badgeIcon: Users },
 			{ title: "Nouveaux produits", value: "105", trend: "+4.98%", trendTone: "success", desc: "comparé au mois passé", badgeIcon: Package },
@@ -14,14 +33,69 @@ export default function Home(){
 			{ title: "Minutes totales", value: "25748", trend: "", trendTone: "muted", desc: "Minutes", badgeIcon: Clock }
 		];
 
-		const countries = [
+		const statCards = metrics ? [
+			{
+				title: "Revenu total du mois",
+				value: formatNumber(metrics.revenueTotal),
+				trend: formatTrend(metrics.trends?.revenueTotal),
+				trendTone: trendTone(metrics.trends?.revenueTotal),
+				desc: "comparé au mois passé",
+				badgeIcon: Banknote,
+			},
+			{
+				title: "Nouveaux utilisateurs",
+				value: formatNumber(metrics.newUsers),
+				trend: formatTrend(metrics.trends?.newUsers),
+				trendTone: trendTone(metrics.trends?.newUsers),
+				desc: "comparé au mois passé",
+				badgeIcon: Users,
+			},
+			{
+				title: "Nouveaux produits",
+				value: formatNumber(metrics.newProducts),
+				trend: formatTrend(metrics.trends?.newProducts),
+				trendTone: trendTone(metrics.trends?.newProducts),
+				desc: "comparé au mois passé",
+				badgeIcon: Package,
+			},
+			{
+				title: "Visionnage en cours",
+				value: formatNumber(metrics.watching),
+				trend: formatTrend(metrics.trends?.watching),
+				trendTone: trendTone(metrics.trends?.watching),
+				desc: "comparé au mois passé",
+				badgeIcon: Play,
+			},
+			{
+				title: "Minutes totales",
+				value: formatNumber(metrics.minutes),
+				trend: formatTrend(metrics.trends?.minutes),
+				trendTone: trendTone(metrics.trends?.minutes),
+				desc: "Minutes",
+				badgeIcon: Clock,
+			},
+		] : fallbackStatCards;
+
+		const countries = highlights?.topCountries ?? [
 			{ name: "United States", value: 38 },
 			{ name: "Australia", value: 25 },
 			{ name: "United Kingdom", value: 65 },
 			{ name: "Africa", value: 15 },
 		];
 
-		const contents = [
+		const contents = highlights?.recentContents?.map((content) => {
+			const qty = (content as { qty?: number }).qty ?? 1;
+			return {
+				product: content.title,
+				category: content.type,
+				qty,
+				publisher: content.publisher,
+				status: content.status,
+				price: formatNumber(content.price),
+				date: content.date,
+				color: "text-white",
+			};
+		}) ?? [
 			{ product: "ASUKA", category: "Film", qty: 1, publisher: "John", status: "Actif", price: "2.000", date: "2026-08-20", color: "text-white" },
 			{ product: "ALEGBAKARA", category: "Film", qty: 1, publisher: "Sarah", status: "Delivered", price: "3.000", date: "2026-08-21", color: "text-white" },
 			{ product: "Ni lui, ni moi", category: "Série", qty: 1, publisher: "Michael", status: "Processing", price: "1.800", date: "2026-08-22", color: "text-white" },
@@ -29,19 +103,40 @@ export default function Home(){
 			{ product: "Le ciel", category: "Série", qty: 1, publisher: "Martinez", status: "Actif", price: "2.100", date: "2026-08-24", color: "text-white" },
 		];
 
-		const doughnutSegments = [
-			{ label: "Tumeur", value: 45, color: "#00b26f" },
-			{ label: "Ni lui", value: 25, color: "#ff725e" },
-			{ label: "Asuka", value: 30, color: "#0da36d" },
-		];
+		const doughnutSegments = highlights?.donuts?.length
+			? highlights.donuts.map((d, idx) => ({
+				label: d.label,
+				value: d.value,
+				color: d.color || ["#00b26f", "#ff725e", "#0da36d"][idx % 3],
+			}))
+			: [
+				{ label: "Tumeur", value: 45, color: "#00b26f" },
+				{ label: "Ni lui", value: 25, color: "#ff725e" },
+				{ label: "Asuka", value: 30, color: "#0da36d" },
+			];
 		const doughnutTotal = doughnutSegments.reduce((sum, seg) => sum + seg.value, 0);
-		const conicGradient = doughnutSegments.reduce((acc, seg, idx) => {
-			const start = doughnutSegments.slice(0, idx).reduce((s, current) => s + (current.value / doughnutTotal) * 100, 0);
-			const end = start + (seg.value / doughnutTotal) * 100;
-			return `${acc}${idx ? ", " : ""}${seg.color} ${start}% ${end}%`;
-		}, "");
+		const conicGradient = doughnutTotal
+			? doughnutSegments.reduce((acc, seg, idx) => {
+				const start = doughnutSegments.slice(0, idx).reduce((s, current) => s + (current.value / doughnutTotal) * 100, 0);
+				const end = start + (seg.value / doughnutTotal) * 100;
+				return `${acc}${idx ? ", " : ""}${seg.color} ${start}% ${end}%`;
+			}, "")
+			: "";
     return (
 			<div className="space-y-6 pb-10">
+				{loading && (
+					<div className="alert alert-info text-sm">
+						Chargement des données en cours...
+					</div>
+				)}
+				{error && (
+					<div className="alert alert-warning text-sm flex items-center justify-between gap-4">
+						<span>{error}</span>
+						<button className="btn btn-outline btn-xs" onClick={() => refetch()}>
+							Recharger
+						</button>
+					</div>
+				)}
 				<div className="flex items-center justify-between gap-4">
 					<div className="flex items-center gap-1 bg-neutral border border-base-300 rounded-xl px-3 py-2 shadow-sm">
 						<button className="btn btn-ghost btn-sm gap-2 text-white border-none">
@@ -233,7 +328,7 @@ export default function Home(){
 						</div>
 						<div className="flex flex-col items-center gap-4">
 							<div className="relative w-56 h-56">
-								<div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${conicGradient})` }} />
+								<div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${conicGradient || "#0da36d 0 100%"})` }} />
 								<div className="absolute inset-4 rounded-full bg-base-100 flex items-center justify-center">
 									<div className="w-20 h-20 rounded-full border-4 border-primary/40"/>
 								</div>

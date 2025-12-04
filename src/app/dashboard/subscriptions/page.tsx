@@ -1,95 +1,70 @@
 import Header from "@/ui/components/header";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { subscriptionsApi } from "@/lib/api/subscriptions";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { formatApiError } from "@/lib/api/errors";
+import { useToast } from "@/ui/components/toast/ToastProvider";
 
 const placeholderAvatar = "/gildas.png";
 
 type Transaction = {
   profile: string;
-  method: 'Carte' | 'Mobile Money' | 'Paypal' | 'Crypto';
-  type: 'Abonnement' | 'Film à l’unité' | 'Pack Série';
+  method: string;
+  type: string;
   pays: string;
-  monnaie: 'XOF' | 'EUR' | 'GNF' | 'USD';
+  monnaie: string;
   cout: number;
   tax: number;
   total: number;
+  id: string;
 };
-
-const transactions: Transaction[] = [
-  {
-    profile: 'Jean Dupont',
-    method: 'Carte',
-    type: 'Abonnement',
-    pays: 'France',
-    monnaie: 'EUR',
-    cout: 10.00,
-    tax: 2.00,
-    total: 12.00,
-  },
-  {
-    profile: 'Amina Sow',
-    method: 'Mobile Money',
-    type: 'Film à l’unité',
-    pays: 'Sénégal',
-    monnaie: 'XOF',
-    cout: 1500,
-    tax: 300,
-    total: 1800,
-  },
-  {
-    profile: 'Alex Tounkara',
-    method: 'Paypal',
-    type: 'Abonnement',
-    pays: 'Mali',
-    monnaie: 'XOF',
-    cout: 2000,
-    tax: 400,
-    total: 2400,
-  },
-  {
-    profile: 'Fatoumata Diallo',
-    method: 'Carte',
-    type: 'Pack Série',
-    pays: 'Guinée',
-    monnaie: 'GNF',
-    cout: 250000,
-    tax: 50000,
-    total: 300000,
-  },
-  {
-    profile: 'Mohamed Keita',
-    method: 'Crypto',
-    type: 'Film à l’unité',
-    pays: 'Côte d\'Ivoire',
-    monnaie: 'XOF',
-    cout: 1000,
-    tax: 200,
-    total: 1200,
-  },
-  {
-    profile: 'Chloe Zinsou',
-    method: 'Carte',
-    type: 'Abonnement',
-    pays: 'Bénin',
-    monnaie: 'XOF',
-    cout: 3000,
-    tax: 600,
-    total: 3600,
-  },
-  {
-    profile: 'Kevin Hounkpati',
-    method: 'Mobile Money',
-    type: 'Pack Série',
-    pays: 'Togo',
-    monnaie: 'XOF',
-    cout: 1800,
-    tax: 360,
-    total: 2160,
-  }
-];
-
 
 
 export default function Page() {
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const accessToken = useAccessToken();
+  const toast = useToast();
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await subscriptionsApi.list({ page: 1, pageSize: 20 }, accessToken);
+        if (cancelled) return;
+        const mapped: Transaction[] = res.items.map((s) => ({
+          id: s.id,
+          profile: s.userName || s.userId,
+          method: s.paymentMethod,
+          type: s.planId,
+          pays: s.country || "",
+          monnaie: s.currency || "XOF",
+          cout: s.total ?? 0,
+          tax: 0,
+          total: s.total ?? 0,
+        }));
+        setTransactions(mapped);
+      } catch (err) {
+        if (cancelled || controller.signal.aborted) return;
+        const friendly = formatApiError(err);
+        setError(friendly.message);
+        toast.error({ title: "Abonnements", description: friendly.message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [accessToken, toast]);
+
   return (
     <div>
       <Header title="Abonnements" className="rounded-2xl border border-base-300 px-5 py-3">
@@ -102,6 +77,8 @@ export default function Page() {
           Voir les plans
         </Link>
       </div>
+      {loading && <div className="alert alert-info text-sm">Chargement des abonnements...</div>}
+      {error && <div className="alert alert-error text-sm">{error}</div>}
       <div className="mt-4 bg-neutral shadow-base-200 shadow-xl">
         <table className="table table-zebra text-sm">
           {/* head */}
@@ -118,8 +95,8 @@ export default function Page() {
             </tr>
           </thead>
           <tbody>
-            {transactions.map((transaction, index) => (
-              <tr key={index}>
+            {transactions.map((transaction) => (
+              <tr key={transaction.id}>
                 <td>
                   <div className="flex items-center gap-3">
                     <div className="avatar">
@@ -146,6 +123,9 @@ export default function Page() {
             ))}
           </tbody>
         </table>
+        {!loading && !error && transactions.length === 0 && (
+          <div className="p-4 text-sm text-white/70">Aucune transaction d'abonnement.</div>
+        )}
       </div>
     </div>
        

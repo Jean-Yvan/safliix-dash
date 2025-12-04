@@ -1,22 +1,40 @@
-'use client'
+"use client";
 
 import InputField from "@/ui/components/inputField";
 import Sidebar from "@/ui/layout/sidebar";
-import { BellDot, Lightbulb, SettingsIcon } from "lucide-react";
+import { BellDot, Lightbulb, Menu, SettingsIcon, X } from "lucide-react";
+import { useState } from "react";
 
 export default function Layout({children}: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <div className="flex items-stretch min-h-screen relative px-2">
-          {/* Sidebar */}
-			<aside className="fixed top-0 left-0 bottom-0 w-56 p-4 pr-0 flex justify-center">
-				<Sidebar />
-			</aside>
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-          {/* Main content */}
-			<main className="flex-1 bg-base-100 ml-56 py-4 pl-4 pr-3">
+  return (
+    <div
+      className={`min-h-screen bg-base-100 transition-all duration-200 ${
+        sidebarOpen ? "pl-56" : "pl-4"
+      }`}
+    >
+      {/* Sidebar */}
+      <aside
+        className={`fixed top-0 left-0 bottom-0 w-56 p-4 pr-0 flex justify-center transition-transform duration-200 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <Sidebar />
+      </aside>
+
+      {/* Main content */}
+      <main className={`min-h-screen overflow-x-auto py-4 px-4 transition-all duration-200`}>
         <div className="flex items-center justify-between bg-base-100/40 border border-base-300 rounded-2xl px-5 py-3 shadow-sm">
-          <div className="flex items-center gap-4 flex-1">
-            <h1 className="text-xl font-semibold text-white">Dashboard</h1>
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <button
+              className="btn btn-neutral btn-sm rounded-full border-base-300"
+              onClick={() => setSidebarOpen((prev) => !prev)}
+              aria-label={sidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+            <h1 className="text-xl font-semibold text-white whitespace-nowrap">Dashboard</h1>
             <InputField
               value={""}
               onChange={(e) => console.log(e.target.value)}
@@ -45,11 +63,11 @@ export default function Layout({children}: Readonly<{ children: React.ReactNode 
             </div>
           </div>
         </div>
-				<div className="mt-4">
+        <div className="mt-4 min-w-0">
           {children}
         </div>
-			</main>
-		</div>
+      </main>
+    </div>
   );
 
 }

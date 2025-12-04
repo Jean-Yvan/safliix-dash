@@ -5,7 +5,11 @@ import Header from "@/ui/components/header";
 import VideoCard from "@/ui/specific/films/components/videoCard";
 import { Download } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { filmsApi } from "@/lib/api/films";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { formatApiError } from "@/lib/api/errors";
+import { useToast } from "@/ui/components/toast/ToastProvider";
 
 export default function Page() {
 	const [mode, setMode] = useState<"location" | "abonnement">("location");
@@ -26,68 +30,37 @@ export default function Page() {
 			? ["Filtrer par statut", "Catégorie de film", "Meilleures ventes", "Dernier ajout"]
 			: ["Filtrer par statut", "Catégorie de film", "Dernier ajout"];
 
-	const films = [
-		{
-			id: "1",
-			title: "Au fil du temps",
-			status: "Actif",
-			director: "SFLIX",
-			dp: "Gildas",
-			number: "20582",
-			category: "Documentaire",
-			poster: "/elegbara.png",
-			hero: "/elegbara.png",
-			stats: { locations: 234, revenue: "23k f" },
-			stars: 4,
-			geo: [
-				{ label: "France", value: 5000, max: 10000, color: "progress-success" },
-				{ label: "Togo", value: 7000, max: 10000, color: "progress-error" },
-				{ label: "Bénin", value: 10000, max: 10000, color: "progress-primary" },
-				{ label: "Sénégal", value: 1000, max: 10000, color: "progress-warning" },
-			],
-			donut: { catalog: 2, viewed: 98, revenue: "150 $" },
-		},
-		{
-			id: "2",
-			title: "Be cauchemard",
-			status: "Actif",
-			director: "SFLIX",
-			dp: "Gildas",
-			number: "20582",
-			category: "Documentaire",
-			poster: "/elegbara.png",
-			hero: "/elegbara.png",
-			stats: { locations: 234, revenue: "23k f" },
-			stars: 5,
-			geo: [
-				{ label: "France", value: 5000, max: 10000, color: "progress-success" },
-				{ label: "Togo", value: 7000, max: 10000, color: "progress-error" },
-				{ label: "Bénin", value: 10000, max: 10000, color: "progress-primary" },
-				{ label: "Sénégal", value: 1000, max: 10000, color: "progress-warning" },
-			],
-			donut: { catalog: 2, viewed: 98, revenue: "150 $" },
-		},
-		{
-			id: "3",
-			title: "Au fil du temps",
-			status: "Actif",
-			director: "SFLIX",
-			dp: "Gildas",
-			number: "20582",
-			category: "Documentaire",
-			poster: "/elegbara.png",
-			hero: "/elegbara.png",
-			stats: { locations: 234, revenue: "23k f" },
-			stars: 4,
-			geo: [
-				{ label: "France", value: 5000, max: 10000, color: "progress-success" },
-				{ label: "Togo", value: 7000, max: 10000, color: "progress-error" },
-				{ label: "Bénin", value: 10000, max: 10000, color: "progress-primary" },
-				{ label: "Sénégal", value: 1000, max: 10000, color: "progress-warning" },
-			],
-			donut: { catalog: 2, viewed: 98, revenue: "150 $" },
-		},
-	];
+	const [films, setFilms] = useState<any[]>([]);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const accessToken = useAccessToken();
+	const toast = useToast();
+
+	useEffect(() => {
+		let cancelled = false;
+		const controller = new AbortController();
+		const load = async () => {
+			setLoading(true);
+			setError(null);
+			try {
+				const res = await filmsApi.list({ page: 1, pageSize: 10 }, accessToken);
+				if (cancelled) return;
+				setFilms(res.items);
+			} catch (err) {
+				if (cancelled || controller.signal.aborted) return;
+				const friendly = formatApiError(err);
+				setError(friendly.message);
+				toast.error({ title: "Films", description: friendly.message });
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		};
+		load();
+		return () => {
+			cancelled = true;
+			controller.abort();
+		};
+	}, [accessToken, toast]);
 
 	const updateJob = (id: string, updates: Partial<(typeof encodingJobs)[number]>) => {
 		setEncodingJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)));
@@ -210,12 +183,15 @@ export default function Page() {
 							Abonnement
 						</button>
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						{filters.map((label) => (
-							<FilterBtn key={label} title={label} />
-						))}
-					</div>
+				<div className="flex flex-wrap items-center gap-2">
+					{filters.map((label) => (
+						<FilterBtn key={label} title={label} />
+					))}
 				</div>
+				</div>
+
+				{loading && <div className="alert alert-info text-sm">Chargement des films...</div>}
+				{error && <div className="alert alert-error text-sm">{error}</div>}
 
 				<div className="space-y-4">
 					{films.map((film) => (
@@ -226,6 +202,9 @@ export default function Page() {
 							detailHref={`/dashboard/films/detail/${film.id}`}
 						/>
 					))}
+					{!loading && !error && films.length === 0 && (
+						<div className="text-sm text-white/70">Aucun film à afficher.</div>
+					)}
 				</div>
 				<div className="flex items-center gap-2 text-sm text-white/70">
 					<button className="btn btn-ghost btn-xs">◀</button>

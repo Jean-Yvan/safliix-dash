@@ -1,0 +1,100 @@
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export class ApiError<T = unknown> extends Error {
+  status: number;
+  data?: T;
+
+  constructor(message: string, status: number, data?: T) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
+
+export interface RequestOptions<TBody = unknown> {
+  method?: HttpMethod;
+  params?: Record<string, string | number | boolean | undefined | null>;
+  body?: TBody;
+  headers?: Record<string, string>;
+  auth?: boolean;
+  accessToken?: string;
+  signal?: AbortSignal;
+}
+
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+
+const buildUrl = (path: string, params?: RequestOptions["params"]) => {
+  const isAbsolute = /^https?:\/\//i.test(path);
+  const target = isAbsolute
+    ? path
+    : `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = isAbsolute ? new URL(target) : new URL(target, "http://dummy");
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      url.searchParams.set(key, String(value));
+    });
+  }
+  return isAbsolute ? url.href : url.href.replace("http://dummy", "");
+};
+
+const shouldSendBody = (method: HttpMethod) => !["GET", "HEAD"].includes(method);
+
+const parseResponse = async <T>(response: Response): Promise<T> => {
+  if (response.status === 204) return undefined as T;
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as T;
+  }
+  return (await response.text()) as unknown as T;
+};
+
+export async function apiRequest<TResponse = unknown, TBody = unknown>(
+  path: string,
+  { method = "GET", params, body, headers, auth = true, accessToken, signal }: RequestOptions<TBody> = {},
+): Promise<TResponse> {
+  const url = buildUrl(path, params);
+  const finalHeaders = new Headers(headers);
+
+  if (auth) {
+    const token = accessToken;
+    if (token) {
+      finalHeaders.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  let finalBody: BodyInit | undefined;
+  if (body instanceof FormData || body instanceof Blob) {
+    finalBody = body;
+  } else if (body !== undefined && body !== null) {
+    finalBody = JSON.stringify(body);
+    finalHeaders.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers: finalHeaders,
+    body: shouldSendBody(method) ? finalBody : undefined,
+    signal,
+  });
+
+  if (!response.ok) {
+    let errorPayload: unknown;
+    try {
+      errorPayload = await response.clone().json();
+    } catch {
+      try {
+        errorPayload = await response.text();
+      } catch {
+        errorPayload = undefined;
+      }
+    }
+    throw new ApiError("API request failed", response.status, errorPayload);
+  }
+
+  return parseResponse<TResponse>(response);
+}
+
+export type Fetcher<T> = (url: string) => Promise<T>;
+export const swrFetcher: Fetcher<unknown> = (url: string) => apiRequest(url);

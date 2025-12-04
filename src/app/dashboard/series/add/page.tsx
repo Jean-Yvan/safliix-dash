@@ -3,14 +3,159 @@
 import Header from "@/ui/components/header";
 import UploadBox from "@/ui/specific/films/components/uploadBox";
 import InputField, { MultipleInputField } from "@/ui/components/inputField";
-import { useFilmForm } from "./useFilmForm";
-import { Controller } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import SuggestionsInput from "@/ui/components/suggestionField";
 import { useState } from "react";
+import ConfirmationDialog, { DialogStatus } from "@/ui/components/confirmationDialog";
+import { seriesApi } from "@/lib/api/series";
+import { uploadToPresignedUrl } from "@/lib/api/uploads";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { useToast } from "@/ui/components/toast/ToastProvider";
+import { formatApiError } from "@/lib/api/errors";
+import { withRetry } from "@/lib/api/retry";
+
+type SeriesFormData = {
+  title: string;
+  description: string;
+  status: string;
+  language: string;
+  productionHouse: string;
+  country: string;
+  type: string;
+  price: number | null;
+  releaseDate: string;
+  publishDate: string;
+  format: string;
+  category: string;
+  season: string;
+  genre: string;
+  actors: string;
+  director: string;
+  duration: string;
+  secondType: string;
+  posterFile: File | null;
+  heroFile: File | null;
+  trailerFile: File | null;
+};
 
 export default function Page() {
-  const { control, formState: { errors } } = useFilmForm();
-  const [synopsis, setSynopsis] = useState("");
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<SeriesFormData>({
+    defaultValues: {
+      title: "",
+      description: "",
+      status: "",
+      language: "",
+      productionHouse: "",
+      country: "",
+      type: "",
+      price: null,
+      releaseDate: "",
+      publishDate: "",
+      format: "",
+      category: "",
+      season: "",
+      genre: "",
+      actors: "",
+      director: "",
+      duration: "",
+      secondType: "",
+      posterFile: null,
+      heroFile: null,
+      trailerFile: null,
+    },
+  });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogAction, setDialogAction] = useState<"draft" | "publish">("draft");
+  const [dialogStatus, setDialogStatus] = useState<DialogStatus>("idle");
+  const [dialogResult, setDialogResult] = useState<string | null>(null);
+  const [pendingData, setPendingData] = useState<SeriesFormData | null>(null);
+  const toast = useToast();
+  const accessToken = useAccessToken();
+
+  const openDialog = (action: "draft" | "publish", data: SeriesFormData) => {
+    setDialogAction(action);
+    setDialogResult(null);
+    setDialogStatus("idle");
+    setPendingData(data);
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    if (dialogStatus === "loading") return;
+    setDialogOpen(false);
+    setDialogResult(null);
+    setPendingData(null);
+    setDialogStatus("idle");
+  };
+
+  const confirmDialog = async () => {
+    if (!pendingData) return;
+    setDialogStatus("loading");
+    setDialogResult(null);
+
+    try {
+      const metadata = {
+        title: pendingData.title,
+        description: pendingData.description,
+        status: pendingData.status || (dialogAction === "publish" ? "publish" : pendingData.status),
+        language: pendingData.language,
+        productionHouse: pendingData.productionHouse,
+        country: pendingData.country,
+        type: pendingData.type,
+        price: pendingData.price,
+        releaseDate: pendingData.releaseDate,
+        publishDate: pendingData.publishDate,
+        format: pendingData.format,
+        category: pendingData.category,
+        genre: pendingData.genre,
+        actors: pendingData.actors,
+        director: pendingData.director,
+        duration: pendingData.duration,
+        secondType: pendingData.secondType,
+      };
+
+      const { id: seriesId } = await withRetry(
+        () => seriesApi.create(metadata, accessToken),
+        { retries: 1 },
+      );
+
+      const files = [
+        pendingData.posterFile ? { key: "poster" as const, file: pendingData.posterFile } : null,
+        pendingData.heroFile ? { key: "hero" as const, file: pendingData.heroFile } : null,
+        pendingData.trailerFile ? { key: "trailer" as const, file: pendingData.trailerFile } : null,
+      ].filter(Boolean) as Array<{ key: "poster" | "hero" | "trailer"; file: File }>;
+
+      if (files.length) {
+        const slots = await seriesApi.presignUploads(
+          seriesId,
+          files.map((f) => ({ key: f.key, name: f.file.name, type: f.file.type })),
+          accessToken,
+        );
+        for (const slot of slots) {
+          const file = files.find((f) => f.key === slot.key)?.file;
+          if (file) {
+            await withRetry(() => uploadToPresignedUrl(slot.uploadUrl, file), { retries: 2 });
+          }
+        }
+        await seriesApi.finalizeUploads(seriesId, slots, accessToken);
+      }
+
+      setDialogStatus("success");
+      const msg = dialogAction === "publish" ? "Série publiée avec succès." : "Brouillon enregistré.";
+      setDialogResult(msg);
+      toast.success({ title: "Série", description: msg });
+    } catch (error) {
+      const friendly = formatApiError(error);
+      setDialogStatus("error");
+      setDialogResult(friendly.message || "Échec de l'envoi de la série.");
+      toast.error({ title: "Série", description: friendly.message });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -33,13 +178,36 @@ export default function Page() {
         <span>View Products: 12/28</span>
       </div>
 
-      <div className="grid grid-cols-12 gap-6 bg-neutral px-5 py-6 rounded-2xl shadow border border-base-300">
+      <form
+        onSubmit={handleSubmit((data) => openDialog("publish", data))}
+        className="grid grid-cols-12 gap-6 bg-neutral px-5 py-6 rounded-2xl shadow border border-base-300"
+      >
         <div className="col-span-5 space-y-6">
           <div className="grid grid-cols-6 grid-rows-2 gap-4">
-            <UploadBox id="main" label="Image principale" className="row-span-2 col-span-3 min-h-[220px]" />
-            <UploadBox id="sec" label="Image secondaire" className="col-span-3 min-h-[100px]" />
-            <UploadBox id="qua" label="Film upload" className="col-span-3 min-h-[100px]" />
-            <UploadBox id="tert" label="Bande annonce" className="col-span-3 row-span-1 min-h-[100px]" />
+            <UploadBox
+              id="main"
+              label="Image principale"
+              className="row-span-2 col-span-3 min-h-[220px]"
+              onFileSelect={(file) => setValue("posterFile", file)}
+            />
+            <UploadBox
+              id="sec"
+              label="Image secondaire"
+              className="col-span-3 min-h-[100px]"
+              onFileSelect={(file) => setValue("heroFile", file)}
+            />
+            <UploadBox
+              id="qua"
+              label="Vidéo"
+              className="col-span-3 min-h-[100px]"
+              onFileSelect={(file) => setValue("trailerFile", file)}
+            />
+            <UploadBox
+              id="tert"
+              label="Bande annonce"
+              className="col-span-3 row-span-1 min-h-[100px]"
+              onFileSelect={(file) => setValue("trailerFile", file)}
+            />
           </div>
           <div className="space-y-2">
             <label className="label text-sm mb-1" htmlFor="image">Acteurs à afficher</label>
@@ -52,12 +220,21 @@ export default function Page() {
           </div>
           <div className="space-y-2">
             <label className="label text-sm mb-1" htmlFor="image">Description du film (synopsis)</label>
-            <MultipleInputField
-              value={synopsis}
-              onChange={(e) => setSynopsis(e.target.value)}
-              name={"synopsis"}
-              className="bg-base-200 border-base-300"
+            <Controller
+              name="description"
+              control={control}
+              rules={{ required: "La description est obligatoire" }}
+              render={({ field }) => (
+                <MultipleInputField
+                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  name={"description"}
+                  className="bg-base-200 border-base-300"
+                />
+              )}
             />
+            {errors.description && <p className="text-red-600 text-sm">{errors.description.message}</p>}
           </div>
           <div className="flex items-center gap-6">
             <label className="flex items-center gap-2 text-sm">
@@ -83,14 +260,14 @@ export default function Page() {
             <div>
               <label className="label text-sm mb-1">Langue</label>
               <Controller
-                name="langue"
+                name="language"
                 control={control}
                 rules={{ required: 'La langue est obligatoire' }}
                 render={({ field }) => (
                   <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />
                 )}
               />
-              {errors.langue && <p className="text-red-600 text-sm">{errors.langue.message}</p>}
+              {errors.language && <p className="text-red-600 text-sm">{errors.language.message}</p>}
             </div>
             <UploadBox id="trailer" label="Sous titre" className="w-full min-h-[80px]" />
           </div>
@@ -262,11 +439,41 @@ export default function Page() {
             </div>
           </div>
           <div className="w-full flex items-center gap-4 pt-2">
-            <button className="btn bg-white text-black rounded-full px-6">Enregistrer en brouillon</button>
-            <button className="btn btn-primary rounded-full px-8">Publier film</button>		
+            <button
+              type="button"
+              className="btn bg-white text-black rounded-full px-6"
+              onClick={() => handleSubmit((data) => openDialog("draft", data))()}
+            >
+              Enregistrer en brouillon
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary rounded-full px-8"
+            >
+              Publier série
+            </button>		
           </div>
         </div>
-      </div>
+      </form>
+
+      <ConfirmationDialog
+        open={dialogOpen}
+        title={dialogAction === "publish" ? "Publier la série ?" : "Enregistrer en brouillon ?"}
+        message="Les métadonnées et fichiers seront envoyés au back."
+        status={dialogStatus}
+        resultMessage={dialogResult ?? undefined}
+        confirmLabel={dialogAction === "publish" ? "Publier" : "Enregistrer"}
+        onConfirm={confirmDialog}
+        onCancel={closeDialog}
+      >
+        {pendingData && (
+          <div className="text-white/70 text-sm space-y-1">
+            <p>Titre : {pendingData.title}</p>
+            <p>Statut : {pendingData.status || dialogAction}</p>
+            <p>Langue : {pendingData.language}</p>
+          </div>
+        )}
+      </ConfirmationDialog>
     </div>
   );
 }

@@ -1,15 +1,31 @@
 import { useRef, useState } from "react";
 import { ImageDownIcon } from "lucide-react";
 
-export default function UploadBox({ id = "main-upload", label = "Image", className = "" }) {
-  const inputRef = useRef(null);
+type UploadBoxProps = {
+  id?: string;
+  label?: string;
+  className?: string;
+  onFileSelect?: (file: File | null) => void;
+};
+
+export default function UploadBox({ id = "main-upload", label = "Image", className = "", onFileSelect }: UploadBoxProps) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0] ?? null;
+
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
+
     if (file) {
       const imageUrl = URL.createObjectURL(file);
       setPreview(imageUrl);
+      onFileSelect?.(file);
+    } else {
+      setPreview(null);
+      onFileSelect?.(null);
     }
   };
 
