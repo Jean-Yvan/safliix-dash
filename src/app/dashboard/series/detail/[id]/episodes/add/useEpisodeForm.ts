@@ -1,16 +1,22 @@
 import { useState } from "react";
+import { seriesApi } from "@/lib/api/series";
+import { formatApiError } from "@/lib/api/errors";
+import { uploadToPresignedUrl } from "@/lib/api/uploads";
+import { useToast } from "@/ui/components/toast/ToastProvider";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { useEpisodeFormSteps } from "./useEpisodeFormSteps";
 
 export type EpisodeForm = {
   title: string;
-  releaseDate: string;
-  publishDate: string;
-  director: string;
-  duration: string;
-  synopsis: string;
+  description: string;
+  isCustomProduction: boolean;
   status: string;
-  language: string;
-  production: "saflix" | "subtitle" | "";
+  duration: number | null;
+  releaseDate: string;
+  plateformDate: string;
+  director: string;
+  episodeNumber: number | null;
+  actors: string;
 };
 
 type EpisodeFiles = {
@@ -19,37 +25,31 @@ type EpisodeFiles = {
   subtitle?: File;
 };
 
-type EpisodeMetadataPayload = Omit<EpisodeForm, "production"> & {
-  isSaflix: boolean;
-};
-
 type EpisodeFileDescriptor = {
   kind: "poster" | "video" | "subtitle";
   file: File;
 };
 
-const statusOptions = ["Actif", "Brouillon", "Suspendu"];
-const languageOptions = ["Français", "Anglais", "Espagnol"];
-const productionLabel = {
-  saflix: "Production SaFlix",
-  subtitle: "Sous-titre",
-} as const;
+const statusOptions = ["DRAFT", "PUBLISHED"] as const;
 
-export function useEpisodeForm() {
+export function useEpisodeForm(seriesId?: string, seasonId?: string) {
   const [form, setForm] = useState<EpisodeForm>({
     title: "",
-    releaseDate: "",
-    publishDate: "",
-    director: "",
-    duration: "",
-    synopsis: "",
+    description: "",
+    isCustomProduction: true,
     status: statusOptions[0],
-    language: languageOptions[1],
-    production: "",
+    duration: null,
+    releaseDate: "",
+    plateformDate: "",
+    director: "",
+    episodeNumber: null,
+    actors: "",
   });
   const [files, setFiles] = useState<EpisodeFiles>({});
 
   const steps = useEpisodeFormSteps();
+  const toast = useToast();
+  const accessToken = useAccessToken();
 
   const updateField = <K extends keyof EpisodeForm>(key: K, value: EpisodeForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -59,16 +59,16 @@ export function useEpisodeForm() {
     setFiles((prev) => ({ ...prev, [key]: file }));
   };
 
-  const buildMetadataPayload = (): EpisodeMetadataPayload => ({
+  const buildMetadataPayload = () => ({
     title: form.title,
-    releaseDate: form.releaseDate,
-    publishDate: form.publishDate,
-    director: form.director,
-    duration: form.duration,
-    synopsis: form.synopsis,
+    description: form.description,
+    isCustomProduction: form.isCustomProduction,
     status: form.status,
-    language: form.language,
-    isSaflix: form.production === "saflix",
+    duration: form.duration ?? 0,
+    releaseDate: form.releaseDate,
+    plateformDate: form.plateformDate,
+    director: form.director,
+    episodeNumber: form.episodeNumber ?? 0,
   });
 
   const collectFiles = (): EpisodeFileDescriptor[] => {
@@ -79,28 +79,51 @@ export function useEpisodeForm() {
     return bucket;
   };
 
-  const submitDraft = () => {
-    steps.setLoading();
-    const meta = buildMetadataPayload();
-    const uploadables = collectFiles();
-    setTimeout(() => {
-      steps.setResult(
-        true,
-        `Brouillon prêt pour "${meta.title || "épisode"}" (${uploadables.length} fichier(s))`
-      );
-    }, 400);
-  };
+  const submit = async (action: "draft" | "publish") => {
+    if (!seasonId) {
+      steps.setResult(false, "Aucune saison cible.");
+      toast.error({ title: "Episode", description: "Aucune saison cible." });
+      return;
+    }
 
-  const submitPublish = () => {
     steps.setLoading();
-    const meta = buildMetadataPayload();
-    const uploadables = collectFiles();
-    setTimeout(() => {
-      steps.setResult(
-        true,
-        `Épisode prêt à publier : "${meta.title || "sans titre"}" (${uploadables.length} fichier(s))`
-      );
-    }, 400);
+    try {
+      const meta = { ...buildMetadataPayload(), status: action === "publish" ? "PUBLISHED" : "DRAFT" };
+      const uploadables = collectFiles();
+
+      const { id: episodeId } = await seriesApi.createEpisode(seriesId ?? "", seasonId, meta, accessToken);
+
+      if (uploadables.length) {
+        const slots = await seriesApi.presignEpisodeUploads(
+          episodeId,
+          uploadables.map((f) => ({ key: f.kind, name: f.file.name, type: f.file.type })),
+          accessToken,
+        );
+
+        for (const slot of slots) {
+          const file = uploadables.find((f) => f.kind === slot.key)?.file;
+          if (file) {
+            await uploadToPresignedUrl(slot.uploadUrl, file);
+          }
+        }
+
+        await seriesApi.finalizeEpisodeUploads(
+          episodeId,
+          slots.map((s) => ({ key: s.key, finalUrl: s.finalUrl })),
+          accessToken,
+        );
+      }
+
+      steps.setResult(true, action === "publish" ? "Episode publié." : "Brouillon enregistré.");
+      toast.success({
+        title: "Episode",
+        description: action === "publish" ? "Episode publié." : "Brouillon enregistré.",
+      });
+    } catch (error) {
+      const friendly = formatApiError(error);
+      steps.setResult(false, friendly.message);
+      toast.error({ title: "Episode", description: friendly.message });
+    }
   };
 
   return {
@@ -109,12 +132,10 @@ export function useEpisodeForm() {
     updateField,
     updateFile,
     statusOptions,
-    languageOptions,
-    productionLabel,
     buildMetadataPayload,
     collectFiles,
-    submitDraft,
-    submitPublish,
+    submitDraft: () => submit("draft"),
+    submitPublish: () => submit("publish"),
     ...steps,
   };
 }

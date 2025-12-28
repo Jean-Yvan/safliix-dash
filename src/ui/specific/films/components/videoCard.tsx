@@ -122,15 +122,18 @@ export default function VideoCard({
           <div className="flex-1 space-y-2">
             <h3 className="font-semibold">Revenu géographique</h3>
             <div className="space-y-2">
-              {film.geo.map((geo) => (
+              {(film.geo ?? []).map((geo) => {
+                const value = typeof geo.value === "number" ? geo.value : Number(geo.value) || 0;
+                return (
                 <div key={geo.label} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <p>{geo.label}</p>
-                    <p>{geo.value.toLocaleString()} f</p>
+                    <p>{value.toLocaleString()} f</p>
                   </div>
-                  <progress className={`progress w-full ${geo.color}`} value={geo.value} max={geo.max}></progress>
+                  <progress className={`progress w-full ${geo.color}`} value={value} max={geo.max}></progress>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (

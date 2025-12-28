@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Download,AlertCircle } from 'lucide-react';
 import { reportsApi } from '@/lib/api/reports';
 import { useAccessToken } from '@/lib/auth/useAccessToken';
 import { formatApiError } from '@/lib/api/errors';
 import { useToast } from '@/ui/components/toast/ToastProvider';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ReportPdf } from '@/ui/pdf/ReportPdf';
 
 type ReportItem = { id: string; name: string; status?: string };
 
@@ -61,6 +63,25 @@ const ReportSelectionCard = () => {
       setGenerating(false);
     }
   };
+
+  const pdfDocument = useMemo(() => {
+    const items = reports
+      .filter((r) => selectedReports.includes(r.id))
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        status: r.status || "N/A",
+        updatedAt: new Date().toLocaleString(),
+      }));
+    return (
+      <ReportPdf
+        title="Rapport sélection"
+        generatedAt={new Date().toLocaleString()}
+        items={items}
+        logoUrl="/LOGO-SAFLIIX.svg"
+      />
+    );
+  }, [reports, selectedReports]);
 
   return (
     <div className="p-2 bg-neutral mx-2">
@@ -118,6 +139,15 @@ const ReportSelectionCard = () => {
           >
             {generating ? "Génération..." : `Générer le rapport (${selectedReports.length})`}
           </button>
+          {selectedReports.length > 0 && (
+            <PDFDownloadLink
+              document={pdfDocument}
+              fileName={`rapport-selection-${selectedReports.length}.pdf`}
+              className="btn btn-ghost text-primary ml-3"
+            >
+              {(props) => props.loading ? "Préparation..." : "Télécharger en PDF"}
+            </PDFDownloadLink>
+          )}
         </div>
       </div>
     </div>

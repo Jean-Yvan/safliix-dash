@@ -41,6 +41,23 @@ export interface SeriesDetail {
   synopsis?: string;
   seasons?: SeasonSummary[];
   stats?: Record<string, unknown>;
+  productionHouse?: string;
+  productionCountry?: string;
+  releaseDate?: string;
+  publishDate?: string;
+  plateformDate?: string;
+  seasonCount?: number;
+  entertainmentMode?: string;
+  gender?: string;
+  actors?: string | string[] | { name: string; actorId?: string }[];
+  description?: string;
+  isSafliixProd?: boolean;
+  haveSubtitles?: boolean;
+  subtitleLanguages?: string[];
+  mainLanguage?: string;
+  ageRating?: string;
+  rightHolderId?: string;
+  blockedCountries?: string[];
 }
 
 export interface SeasonSummary {
@@ -54,21 +71,23 @@ export interface SeasonSummary {
 export interface SeriesMetadataPayload {
   title: string;
   description: string;
-  status: SeriesStatus;
-  language: string;
-  productionHouse?: string;
-  country?: string;
-  type: string;
-  price?: number | null;
-  releaseDate?: string;
-  publishDate?: string;
-  format?: string;
-  category?: string;
-  genre?: string;
-  actors?: string;
-  director?: string;
-  duration?: string;
-  secondType?: string;
+  productionHouse: string;
+  productionCountry: string;
+  releaseDate: string;
+  plateformDate: string;
+  seasonCount: number | null;
+  category: string;
+  entertainmentMode: "SERIE";
+  gender: string;
+  director: string;
+  actors: { actorId?: string; name: string }[];
+  isSafliixProd: boolean;
+  haveSubtitles: boolean;
+  subtitleLanguages?: string[];
+  mainLanguage: string;
+  ageRating?: string;
+  rightHolderId?: string;
+  blockedCountries?: string[];
 }
 
 export interface SeriesCreateOrUpdateResponse { id: string }
@@ -93,9 +112,9 @@ export interface SeriesMetaOptionsResponse {
 
 // Seasons
 export interface CreateSeasonPayload {
-  number: number | string;
+  numero: number;
   title?: string;
-  posterTempId?: string;
+  description?: string;
 }
 
 export interface SeasonUploadDescriptor { key: "poster"; name: string; type: string }

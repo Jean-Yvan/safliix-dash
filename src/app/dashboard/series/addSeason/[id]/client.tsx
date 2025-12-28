@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ConfirmationDialog, { DialogStatus } from "@/ui/components/confirmationDialog";
 import UploadBox from "@/ui/specific/films/components/uploadBox";
 import { useToast } from "@/ui/components/toast/ToastProvider";
@@ -11,16 +11,18 @@ import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { uploadToPresignedUrl } from "@/lib/api/uploads";
 
 type SeasonDraft = {
-  number: number | "";
+  numero: number | "";
   title: string;
+  description: string;
   serieId: string;
   poster: File | null;
 };
 
-export default function Page() {
-  const [number, setNumber] = useState<number | "">("");
+export default function SeasonAddClient({ id }: { id: string }) {
+  const [numero, setNumero] = useState<number | "">("");
   const [title, setTitle] = useState("");
-  const [serieId, setSerieId] = useState("");
+  const [description, setDescription] = useState("");
+  const [serieId, setSerieId] = useState(id);
   const [poster, setPoster] = useState<File | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStatus, setDialogStatus] = useState<DialogStatus>("idle");
@@ -29,16 +31,19 @@ export default function Page() {
   const toast = useToast();
   const accessToken = useAccessToken();
 
+  useEffect(() => {
+    setSerieId(id);
+  }, [id]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const data: SeasonDraft = {
-      number,
-      title,
-      serieId,
-      poster,
-    };
+    if (!serieId) {
+      toast.error({ title: "Saison", description: "Aucun identifiant de série fourni." });
+      return;
+    }
 
+    const data: SeasonDraft = { numero, title, description, serieId, poster };
     setPendingSeason(data);
     setDialogOpen(true);
     setDialogStatus("idle");
@@ -59,17 +64,11 @@ export default function Page() {
     setDialogResult(null);
 
     try {
-      const formData = new FormData();
-      formData.append("number", String(pendingSeason.number));
-      formData.append("title", pendingSeason.title);
-      formData.append("serieId", pendingSeason.serieId);
-      if (pendingSeason.poster) formData.append("poster", pendingSeason.poster);
-
       const { seasonId } = await withRetry(
         () =>
           seriesApi.createSeason(
             pendingSeason.serieId,
-            { number: pendingSeason.number, title: pendingSeason.title },
+            { numero: Number(pendingSeason.numero), title: pendingSeason.title, description: pendingSeason.description },
             accessToken,
           ),
         { retries: 1 },
@@ -118,24 +117,22 @@ export default function Page() {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="p-4 space-y-6 bg-neutral rounded-lg shadow-md">
-        <h2 className="text-lg font-semibold">Ajouter une nouvelle saison</h2>
+      <form id="season-form" onSubmit={handleSubmit} className="p-4 space-y-6 bg-neutral rounded-lg shadow-md">
+        <h2 className="text-lg font-semibold">Nouvelle saison</h2>
 
-        {/* Numéro de saison */}
         <div>
           <label className="block mb-1 text-sm font-medium">Numéro de saison</label>
           <input
             type="number"
-            value={number}
-            onChange={(e) => setNumber(e.target.value === "" ? "" : Number(e.target.value))}
+            value={numero}
+            onChange={(e) => setNumero(e.target.value === "" ? "" : Number(e.target.value))}
             className="w-full p-2 border rounded-md"
             required
           />
         </div>
 
-        {/* Titre de saison */}
         <div>
-          <label className="block mb-1 text-sm font-medium">Titre (optionnel)</label>
+          <label className="block mb-1 text-sm font-medium">Titre</label>
           <input
             type="text"
             value={title}
@@ -145,30 +142,27 @@ export default function Page() {
           />
         </div>
 
-        {/* Série */}
         <div>
-          <label className="block mb-1 text-sm font-medium">ID de la série</label>
-          <input
-            type="text"
-            value={serieId}
-            onChange={(e) => setSerieId(e.target.value)}
+          <label className="block mb-1 text-sm font-medium">Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             className="w-full p-2 border rounded-md"
-            required
+            placeholder="Description de la saison"
+            rows={3}
           />
         </div>
 
-        {/* Upload poster */}
+        {!serieId && (
+          <div className="alert alert-warning text-sm">
+            Ajoutez un identifiant de série dans l&apos;URL pour cibler la série.
+          </div>
+        )}
+
         <div>
           <label className="block mb-1 text-sm font-medium">Affiche (poster)</label>
           <UploadBox onFileSelect={setPoster} />
         </div>
-
-        <button
-          type="submit"
-          className="px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700"
-        >
-          Enregistrer
-        </button>
       </form>
 
       <ConfirmationDialog
@@ -185,15 +179,15 @@ export default function Page() {
           <div className="bg-base-100/10 border border-base-300 rounded-xl p-3 text-sm text-white/80 space-y-2">
             <div className="flex justify-between">
               <span className="text-white/60">Numéro</span>
-              <span>{pendingSeason.number}</span>
+              <span>{pendingSeason.numero}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/60">Titre</span>
               <span>{pendingSeason.title || "—"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-white/60">ID série</span>
-              <span>{pendingSeason.serieId}</span>
+              <span className="text-white/60">Description</span>
+              <span>{pendingSeason.description || "—"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/60">Poster</span>

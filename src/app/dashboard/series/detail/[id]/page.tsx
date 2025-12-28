@@ -1,22 +1,14 @@
 import { PageParamProps } from "@/types/utils";
-import Header from "@/ui/components/header";
-import Link from "next/link";
 import SeriesDetailClient from "./client";
-
-const seasons = ["01"];
+import { seriesApi } from "@/lib/api/series";
+import { cookies } from "next/headers";
 
 export default async function Page({ params }: PageParamProps) {
   const { id } = await params;
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("accessToken")?.value;
+  const detail = await seriesApi.detail(id, accessToken);
+  const seasons = detail.seasons?.map((s) => ({ id: s.id, number: String(s.number ?? s.id) })) ?? [];
 
-  return (
-    <div className="space-y-4">
-      <Header title="Liste des épisodes">
-        <Link href={`/dashboard/series/addSeason`} className="btn btn-primary">
-          Ajouter une saison
-        </Link>
-      </Header>
-
-      <SeriesDetailClient id={id} seasons={seasons} />
-    </div>
-  );
+  return <SeriesDetailClient id={id} seasons={seasons} detail={detail} />;
 }

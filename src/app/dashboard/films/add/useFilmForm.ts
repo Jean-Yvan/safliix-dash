@@ -7,14 +7,16 @@ import { withRetry } from "@/lib/api/retry";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { useSession } from "next-auth/react";
 import { DialogStatus } from "@/ui/components/confirmationDialog";
+import { type FilmMetadataPayload } from "@/types/api/films";
 
+export type SuggestionOption = { label: string; value: string };
 export type FilmFormData = {
   title: string;
   description: string;
-  status: string;
   language: string;
   productionHouse: string;
   country: string;
+  blockCountries: string[];
   type: string;
   price: number | null;
   releaseDate: string;
@@ -22,10 +24,14 @@ export type FilmFormData = {
   format: string;
   category: string;
   genre: string;
-  actors: string;
+  actors: string[];
   director: string;
-  duration: string;
-  secondType: string;
+  duration: number | null;
+  ageRating: string;
+  isSafliixProd: boolean;
+  haveSubtitles: boolean;
+  subtitleLanguages: string[];
+  rightHolderId?: string;
   mainImage: File | null;
   secondaryImage: File | null;
   trailerFile: File | null;
@@ -37,8 +43,19 @@ export type SubmitAction = "draft" | "publish" | "update";
 type FileSlotType = "main_image" | "secondary_image" | "trailer" | "movie";
 type FileDescriptor = { key: FileSlotType; file: File };
 type PresignedSlot = { key: FileSlotType; uploadUrl: string; finalUrl: string };
-type MetadataPayload = Omit<FilmFormData, "mainImage" | "secondaryImage" | "trailerFile" | "movieFile">;
+type MetadataPayload = FilmMetadataPayload;
 type ProgressStep = "idle" | "metadata" | "presign" | "upload" | "finalize";
+type OptionLists = {
+  types: SuggestionOption[];
+  categories: SuggestionOption[];
+  formats: SuggestionOption[];
+  genres: SuggestionOption[];
+  actors: SuggestionOption[];
+  countries: SuggestionOption[];
+  productionHouses: SuggestionOption[];
+  rightHolders: SuggestionOption[];
+  languages: SuggestionOption[];
+};
 
 export function useFilmForm() {
   const {
@@ -51,10 +68,10 @@ export function useFilmForm() {
     defaultValues: {
       title: "",
       description: "",
-      status: "",
       language: "",
       productionHouse: "",
       country: "",
+      blockCountries: [],
       type: "",
       price: null,
       releaseDate: "",
@@ -62,10 +79,14 @@ export function useFilmForm() {
       format: "",
       category: "",
       genre: "",
-      actors: "",
+      actors: [],
       director: "",
-      duration: "",
-      secondType: "",
+      duration: null,
+      ageRating: "",
+      isSafliixProd: true,
+      haveSubtitles: false,
+      subtitleLanguages: [],
+      rightHolderId: "",
       mainImage: null,
       secondaryImage: null,
       trailerFile: null,
@@ -74,21 +95,86 @@ export function useFilmForm() {
   });
 
   const mainImage = watch("mainImage");
+  const actorsValue = watch("actors");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStatus, setDialogStatus] = useState<DialogStatus>("idle");
   const [dialogResult, setDialogResult] = useState<string | null>(null);
   const [pendingFilm, setPendingFilm] = useState<FilmFormData | null>(null);
   const [pendingAction, setPendingAction] = useState<SubmitAction>("publish");
+  const [metaSaving, setMetaSaving] = useState(false);
   const [filmId, setFilmId] = useState<string | null>(null);
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [prefillError, setPrefillError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<ProgressStep>("idle");
   const [progressDetail, setProgressDetail] = useState<string | null>(null);
   const [uploadErrorDetail, setUploadErrorDetail] = useState<string | null>(null);
+  const [options, setOptions] = useState<OptionLists>({
+    types: [],
+    categories: [],
+    formats: [],
+    genres: [],
+    actors: [],
+    countries: [],
+    productionHouses: [],
+    rightHolders: [],
+    languages: [],
+  });
+  const [optionsLoading, setOptionsLoading] = useState(false);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const toast = useToast();
   const { data: session } = useSession();
   const accessToken = session?.accessToken;
+
+  useEffect(() => {
+    const mapStrings = (values?: string[]) => (values ?? []).filter(Boolean).map((v) => ({ label: v, value: v }));
+    const mapObjects = <T>(items: T[] | undefined, key: keyof T) =>
+      (items ?? [])
+        .map((item) => {
+          const raw = (item as Record<string, unknown>)?.[key as string];
+          const value = typeof raw === "string" ? raw : "";
+          return value ? { label: value, value } : null;
+        })
+        .filter((opt): opt is SuggestionOption => Boolean(opt));
+    const dedupe = (list: SuggestionOption[]) => {
+      const seen = new Set<string>();
+      return list.filter((opt) => {
+        if (seen.has(opt.value)) return false;
+        seen.add(opt.value);
+        return true;
+      });
+    };
+
+    const loadOptions = async () => {
+      setOptionsLoading(true);
+      setOptionsError(null);
+      try {
+        const res = await filmsApi.metaOptions(accessToken);
+        setOptions({
+          types: dedupe(mapStrings(res.types)),
+          categories: dedupe(mapObjects(res.categories, "category")),
+          formats: dedupe(mapObjects(res.formats, "format")),
+          genres: dedupe(mapObjects(res.genres, "name")),
+          actors: dedupe(mapObjects(res.actors, "name")),
+          countries: dedupe(mapStrings(res.countries)),
+          productionHouses: dedupe(mapStrings(res.productionHouses)),
+          languages: dedupe(mapStrings(res.languages ?? [])),
+          rightHolders: dedupe((res.rightHolders ?? []).map((r) => ({
+            label: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email || r.id,
+            value: r.id,
+          }))),
+        });
+      } catch (error) {
+        const friendly = formatApiError(error);
+        setOptionsError(friendly.message);
+        toast.error({ title: "Options", description: friendly.message });
+      } finally {
+        setOptionsLoading(false);
+      }
+    };
+
+    loadOptions();
+  }, [accessToken, toast]);
 
   useEffect(() => {
     if (mainImage) {
@@ -110,27 +196,38 @@ export function useFilmForm() {
         const payload: Partial<FilmFormData> = {
           title: film.title,
           description: film.description ?? film.synopsis ?? "",
-          status: film.status ?? "",
-          language: film.language ?? "",
+          language: (film as { mainLanguage?: string }).mainLanguage ?? film.language ?? "",
           productionHouse: film.productionHouse ?? "",
-          country: film.country ?? "",
+          country: (film as { productionCountry?: string }).productionCountry ?? film.country ?? "",
+          blockCountries: (film as { blockCountries?: string[] }).blockCountries ?? [],
           type: film.type ?? "",
-          price: film.price ?? null,
+          price: (film as { rentalPrice?: number | null }).rentalPrice ?? film.price ?? null,
           releaseDate: film.releaseDate ?? "",
-          publishDate: film.publishDate ?? "",
+          publishDate: (film as { plateformDate?: string }).plateformDate ?? film.publishDate ?? "",
           format: film.format ?? "",
           category: film.category ?? "",
-          genre: film.genre ?? "",
-          actors: film.actors ?? "",
+          genre: (film as { gender?: string }).gender ?? film.genre ?? "",
+          actors: typeof film.actors === "string"
+            ? film.actors
+                .split(",")
+                .map((a) => a.trim())
+                .filter(Boolean)
+            : Array.isArray((film as { actors?: string[] }).actors)
+              ? ((film as { actors?: string[] }).actors ?? [])
+              : [],
           director: film.director ?? "",
-          duration: film.duration ?? "",
-          secondType: film.secondType ?? "",
+          duration: film.duration ? Number(film.duration) : null,
+          ageRating: (film as { ageRating?: string }).ageRating ?? "",
+          isSafliixProd: (film as { isSafliixProd?: boolean }).isSafliixProd ?? true,
+          haveSubtitles: (film as { haveSubtitles?: boolean }).haveSubtitles ?? false,
+          subtitleLanguages: (film as { subtitleLanguages?: string[] }).subtitleLanguages ?? [],
+          rightHolderId: (film as { rightHolderId?: string }).rightHolderId ?? "",
         };
 
         Object.entries(payload).forEach(([key, value]) => {
           setValue(key as keyof FilmFormData, value as never, { shouldValidate: false });
         });
-      } catch (error) {
+      } catch {
         setPrefillError("Impossible de préremplir le formulaire.");
       } finally {
         setPrefillLoading(false);
@@ -156,8 +253,33 @@ export function useFilmForm() {
   };
 
   const buildMetadataPayload = (film: FilmFormData): MetadataPayload => {
-    const { mainImage, secondaryImage, trailerFile, movieFile, ...metadata } = film;
-    return metadata;
+    const rentalPrice = (film.type || "").toLowerCase() === "abonnement" ? null : film.price;
+    const actors = (film.actors ?? []).filter(Boolean).map((name) => ({ name }));
+
+    return {
+      title: film.title,
+      description: film.description,
+      productionHouse: film.productionHouse,
+      productionCountry: film.country,
+      type: film.type,
+      rentalPrice,
+      releaseDate: film.releaseDate,
+      plateformDate: film.publishDate,
+      format: film.format,
+      category: film.category,
+      entertainmentMode: "MOVIE",
+      gender: film.genre,
+      director: film.director,
+      actors,
+      isSafliixProd: film.isSafliixProd,
+      haveSubtitles: film.haveSubtitles,
+      subtitleLanguages: film.subtitleLanguages,
+      mainLanguage: film.language,
+      ageRating: film.ageRating || undefined,
+      duration: film.duration ?? null,
+      rightHolderId: film.rightHolderId || undefined,
+      blockedCountries: film.blockCountries ?? [],
+    };
   };
 
   const collectFiles = (film: FilmFormData): FileDescriptor[] => {
@@ -172,12 +294,8 @@ export function useFilmForm() {
       .map(([key, file]) => ({ key, file: file as File }));
   };
 
-  const submitMetadata = async ({ action, ...metadata }: MetadataPayload & { action: SubmitAction }) => {
-    const payload: MetadataPayload = {
-      ...metadata,
-      status: metadata.status || (action === "publish" ? "publish" : metadata.status),
-    };
-
+  const submitMetadata = async (metadata: MetadataPayload) => {
+    const payload: MetadataPayload = { ...metadata };
     const response = filmId
       ? await withRetry(() => filmsApi.update(filmId, payload, accessToken))
       : await withRetry(() => filmsApi.create(payload, accessToken));
@@ -211,6 +329,30 @@ export function useFilmForm() {
     );
   };
 
+  const saveMetadataOnly = async (film: FilmFormData) => {
+    setMetaSaving(true);
+    setProgressStep("metadata");
+    try {
+      const metadata = buildMetadataPayload(film);
+      console.log("[films] sauvegarde meta seule", { metadata, filmId });
+      const createdFilmId = await submitMetadata(metadata);
+      setFilmId(createdFilmId);
+      toast.success({
+        title: "Métadonnées sauvegardées",
+        description: "Vous pouvez passer à l’étape des fichiers.",
+      });
+      return createdFilmId;
+    } catch (error) {
+      const friendly = formatApiError(error);
+      setUploadErrorDetail(friendly.message);
+      toast.error({ title: "Métadonnées", description: friendly.message });
+      throw error;
+    } finally {
+      setMetaSaving(false);
+      setProgressStep("idle");
+    }
+  };
+
   const confirmSend = async () => {
     if (!pendingFilm) return;
     setDialogStatus("loading");
@@ -221,12 +363,15 @@ export function useFilmForm() {
     try {
       const metadata = buildMetadataPayload(pendingFilm);
       const files = collectFiles(pendingFilm);
+      console.log("[films] ready to submit", {
+        action: pendingAction,
+        filmId,
+        metadata,
+        files: files.map((f) => ({ key: f.key, name: f.file.name, type: f.file.type, size: f.file.size })),
+      });
 
       setProgressStep("metadata");
-      const createdFilmId = await submitMetadata({
-        ...metadata,
-        action: pendingAction,
-      });
+      const createdFilmId = await submitMetadata(metadata);
       setFilmId(createdFilmId);
 
       if (files.length) {
@@ -276,8 +421,11 @@ export function useFilmForm() {
     control,
     handleSubmit,
     setValue,
+    actorsValue,
     previewUrl,
     formState: { errors },
+    saveMetadataOnly,
+    metaSaving,
     openConfirm,
     closeDialog,
     confirmSend,
@@ -293,5 +441,8 @@ export function useFilmForm() {
     progressStep,
     progressDetail,
     uploadErrorDetail,
+    options,
+    optionsLoading,
+    optionsError,
   };
 }

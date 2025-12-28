@@ -56,6 +56,12 @@ export async function apiRequest<TResponse = unknown, TBody = unknown>(
 ): Promise<TResponse> {
   const url = buildUrl(path, params);
   const finalHeaders = new Headers(headers);
+  const requestLog = {
+    method,
+    url,
+    params,
+    body: body instanceof FormData ? "[FormData]" : body instanceof Blob ? "[Blob]" : body,
+  };
 
   if (auth) {
     const token = accessToken;
@@ -89,11 +95,18 @@ export async function apiRequest<TResponse = unknown, TBody = unknown>(
       } catch {
         errorPayload = undefined;
       }
+    console.error("[api] request failed", { ...requestLog, status: response.status }, errorPayload);
     }
     throw new ApiError("API request failed", response.status, errorPayload);
   }
 
-  return parseResponse<TResponse>(response);
+  const rawData = await parseResponse<TResponse>(response);
+  const unwrappedData =
+    rawData && typeof rawData === "object" && "data" in (rawData as Record<string, unknown>)
+      ? (rawData as { data: TResponse }).data
+      : rawData;
+  console.info("[api] request succeeded", { ...requestLog, status: response.status }, unwrappedData);
+  return unwrappedData;
 }
 
 export type Fetcher<T> = (url: string) => Promise<T>;

@@ -2,12 +2,10 @@ import { apiRequest } from "./client";
 import {
   type CreateSeasonPayload,
   type EpisodeDetail,
-  type EpisodeFinalizePayload,
   type EpisodeListParams,
   type EpisodeMetadataPayload,
   type EpisodeUploadDescriptor,
   type EpisodeUploadSlot,
-  type SeasonFinalizePayload,
   type SeasonUploadDescriptor,
   type SeasonUploadSlot,
   type SeriesCreateOrUpdateResponse,
@@ -68,12 +66,12 @@ export const seriesApi = {
 
   // Episodes
   listEpisodes: (seriesId: string, seasonId: string, params?: EpisodeListParams, accessToken?: string) =>
-    apiRequest<EpisodeDetail[]>(`/series/${seriesId}/seasons/${seasonId}/episodes`, { params, accessToken }),
+    apiRequest<EpisodeDetail[]>(`/series/seasons/${seasonId}/episodes`, { params, accessToken }),
 
   getEpisode: (episodeId: string, accessToken?: string) => apiRequest<EpisodeDetail>(`/episodes/${episodeId}`, { accessToken }),
 
   createEpisode: (seriesId: string, seasonId: string, payload: EpisodeMetadataPayload, accessToken?: string) =>
-    apiRequest<{ id: string }>(`/series/${seriesId}/seasons/${seasonId}/episodes`, {
+    apiRequest<{ id: string }>(`/series/seasons/${seasonId}/episodes`, {
       method: "POST",
       body: payload,
       accessToken,

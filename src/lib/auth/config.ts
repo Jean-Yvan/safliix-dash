@@ -55,9 +55,15 @@ const authConfig: NextAuthConfig = {
     async jwt({ token, account, profile }) {
       // Initial sign-in
       if (account) {
+        const expiresAtMs =
+          account.expires_at
+            ? account.expires_at * 1000
+            : account.expires_in
+              ? Date.now() + account.expires_in * 1000
+              : undefined;
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
-        token.accessTokenExpires = Date.now() + (account.expires_in || 0) * 1000;
+        token.accessTokenExpires = expiresAtMs;
         token.idToken = account.id_token;
         token.user = {
           name: profile?.name || profile?.preferred_username || token.name,

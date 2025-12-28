@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Megaphone,
   Monitor,
+  UserCheck,
   Settings,
   Shield,
   Users
@@ -30,6 +31,7 @@ const items: MenuItem[] = [
   { href: "/dashboard/films", label: "Film", icon: Film },
   { href: "/dashboard/series", label: "Série", icon: Clapperboard },
   { href: "/dashboard/users", label: "Utilisateur", icon: Users },
+  { href: "/dashboard/rights-holders", label: "Ayants droit", icon: UserCheck },
   { href: "/dashboard/subscriptions", label: "Abonnement", icon: CreditCard },
   {
     href: "/dashboard/stats",

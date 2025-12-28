@@ -7,7 +7,7 @@ import {
   type FilmListParams,
   type FilmListResponse,
   type FilmMetadataPayload,
-  type FilmMetaOptionsResponse,
+  type FilmMetaOptions,
   type FilmUploadFileDescriptor,
   type FilmUploadFinalizePayload,
   type FilmUploadSlot,
@@ -15,48 +15,49 @@ import {
 
 export const filmsApi = {
   list: (params: FilmListParams, accessToken?: string) =>
-    apiRequest<FilmListResponse>("/films", {
+    apiRequest<FilmListResponse>("/admin/movies", {
       params,
       accessToken,
     }),
 
-  detail: (id: string, accessToken?: string) => apiRequest<FilmDetail>(`/films/${id}`, { accessToken }),
+  detail: (id: string, accessToken?: string) =>
+    apiRequest<FilmDetail>(`/admin/movies/${id}`, { accessToken }),
 
   create: (payload: FilmMetadataPayload, accessToken?: string) =>
-    apiRequest<FilmCreateOrUpdateResponse>("/films", {
+    apiRequest<FilmCreateOrUpdateResponse>("/admin/movies", {
       method: "POST",
       body: payload,
       accessToken,
     }),
 
   update: (id: string, payload: FilmMetadataPayload, accessToken?: string) =>
-    apiRequest<FilmCreateOrUpdateResponse>(`/films/${id}`, {
+    apiRequest<FilmCreateOrUpdateResponse>(`/admin/movies/${id}`, {
       method: "PUT",
       body: payload,
       accessToken,
     }),
 
   performAction: (id: string, payload: FilmActionPayload, accessToken?: string) =>
-    apiRequest<FilmActionResponse>(`/films/${id}/actions`, {
+    apiRequest<FilmActionResponse>(`/admin/movies/${id}/actions`, {
       method: "POST",
       body: payload,
       accessToken,
     }),
 
   presignUploads: (id: string, files: FilmUploadFileDescriptor[], accessToken?: string) =>
-    apiRequest<FilmUploadSlot[]>(`/films/${id}/uploads/presign`, {
+    apiRequest<FilmUploadSlot[]>(`/admin/movies/${id}/uploads/presign`, {
       method: "POST",
       body: { files },
       accessToken,
     }),
 
   finalizeUploads: (id: string, payload: FilmUploadFinalizePayload, accessToken?: string) =>
-    apiRequest<{ ok: boolean }>(`/films/${id}/uploads/finalize`, {
+    apiRequest<{ ok: boolean }>(`/admin/movies/${id}/uploads/finalize`, {
       method: "POST",
       body: payload,
       accessToken,
     }),
 
   metaOptions: (accessToken?: string) =>
-    apiRequest<FilmMetaOptionsResponse>("/films/meta/options", { accessToken }),
+    apiRequest<FilmMetaOptions>("/admin/movies/meta/options", { accessToken }),
 };

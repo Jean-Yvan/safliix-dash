@@ -7,40 +7,79 @@ type OptionType = { label: string; value: string };
 type SuggestionsInputProps = {
   className?: string;
   optionList: OptionType[];
-  value: string; // on stocke toujours l'ID
+  value: string;
   onChange: (newValue: string) => void;
 };
 
 const SuggestionsInput = ({ className, optionList, value, onChange }: SuggestionsInputProps) => {
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
-  const [searchText, setSearchText] = useState<string>("");
+  const [inputValue, setInputValue] = useState<string>(value || "");
 
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const selectedOption = optionList.find(opt => opt.value === value);
-  const currentDisplay = searchText || selectedOption?.label || "";
+  const selectedOption = optionList.find((opt) => opt.value === value);
 
   const suggestionArr = optionList.filter((suggestion) =>
-    suggestion.label.toLowerCase().includes(currentDisplay.toLowerCase())
+    suggestion.label.toLowerCase().includes(inputValue.toLowerCase()),
   );
 
   const changeHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchText(e.target.value);
-    onChange(e.target.value);
-  };
-
-  const handleClickOutside = (e: MouseEvent) => {
-    if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-      setShowDropdown(false);
-    }
+    const text = e.target.value;
+    setInputValue(text);
+    onChange(text);
+    setShowDropdown(true);
   };
 
   useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+        if (!selectedOption) {
+          onChange(inputValue.trim());
+        }
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [inputValue, onChange, selectedOption]);
+
+  const finalizeFreeText = () => {
+    setShowDropdown(false);
+    if (!selectedOption) {
+      onChange(inputValue.trim());
+    }
+  };
+
+  useEffect(() => {
+    // Sync external value changes (prefill or reset)
+    if (selectedOption) {
+      setInputValue(selectedOption.label);
+    } else if (value === "") {
+      setInputValue("");
+    } else {
+      setInputValue(value);
+    }
+  }, [value, selectedOption, optionList]);
+
+  const handleSelect = (suggestion: OptionType) => {
+    onChange(suggestion.value);
+    setInputValue(suggestion.label);
+    setShowDropdown(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestionArr.length > 0) {
+        handleSelect(suggestionArr[0]);
+      } else if (!selectedOption) {
+        finalizeFreeText();
+      }
+    }
+  };
 
   return (
     <div className="relative" ref={wrapperRef}>
@@ -49,7 +88,9 @@ const SuggestionsInput = ({ className, optionList, value, onChange }: Suggestion
         type="text"
         onChange={changeHandler}
         onFocus={() => setShowDropdown(true)}
-        value={currentDisplay}
+        onBlur={finalizeFreeText}
+        onKeyDown={handleKeyDown}
+        value={inputValue}
         className={className}
       />
       {showDropdown && (
@@ -59,11 +100,7 @@ const SuggestionsInput = ({ className, optionList, value, onChange }: Suggestion
               <div
                 key={"suggestion_" + index}
                 className="p-2 bg-gray-100 text-black cursor-pointer hover:bg-gray-200"
-                onClick={() => {
-                  onChange(suggestion.value); // stocke l'id
-                  setSearchText(""); // efface la recherche
-                  setShowDropdown(false);
-                }}
+                onClick={() => handleSelect(suggestion)}
               >
                 {suggestion.label}
               </div>

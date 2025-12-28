@@ -1,22 +1,42 @@
+import { useEffect, useState } from "react";
 import FilterBtn from "@/ui/components/filterBtn";
 import Header from "@/ui/components/header";
-import { Ligature, Star } from "lucide-react";
+import { Ligature } from "lucide-react";
 import Link from "next/link";
+import { statsApi } from "@/lib/api/stats";
+import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { formatApiError } from "@/lib/api/errors";
+import { useToast } from "@/ui/components/toast/ToastProvider";
+import { type PubStatsItem } from "@/types/api/stats";
 
 export default function Page(){
-  const pubs = Array.from({ length: 6 }).map((_, idx) => ({
-    id: `pub-${idx + 1}`,
-    title: `Campagne ${idx + 1}`,
-    status: idx % 2 === 0 ? "Actif" : "En pause",
-    date: "08/23/2024",
-    poster: "/elegbara.png",
-    geo: [
-      { label: "Côte d'Ivoire", value: 5000, max: 10000, color: "progress-accent" },
-      { label: "Togo", value: 7000, max: 10000, color: "progress-error" },
-      { label: "Bénin", value: 4000, max: 10000, color: "progress-primary" },
-    ],
-    stats: { conversions: "30%", views: "12k" },
-  }));
+  const [pubs, setPubs] = useState<PubStatsItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const accessToken = useAccessToken();
+  const toast = useToast();
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await statsApi.pub(undefined, accessToken);
+        if (cancelled) return;
+        setPubs(res.items);
+      } catch (err) {
+        if (cancelled) return;
+        const friendly = formatApiError(err);
+        setError(friendly.message);
+        toast.error({ title: "Stats pubs", description: friendly.message });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [accessToken, toast]);
 
   return (
     <div>
@@ -31,27 +51,25 @@ export default function Page(){
           <button className="btn btn-primary">Exporter les rapports</button>
           <button className="btn btn-primary">Ajouter </button>
         </div>
-
-
       </div>
-      <div className="mt-7">
+      {loading && <div className="alert alert-info text-sm mt-3">Chargement des campagnes...</div>}
+      {error && <div className="alert alert-error text-sm mt-3">{error}</div>}
+      <div className="mt-7 space-y-3">
         {pubs.map((pub) => (
           <PubCard key={pub.id} pub={pub}/>
-        ))}        
+        ))}
+        {!loading && !error && pubs.length === 0 && (
+          <div className="text-sm text-white/70">Aucune campagne trouvée.</div>
+        )}
       </div>
     </div>
   )
 }
 
 
-type Pub = {
-  id: string;
-  title: string;
-  status: string;
-  date: string;
-  poster: string;
-  geo: { label: string; value: number; max: number; color: string }[];
-  stats: { conversions: string; views: string };
+type Pub = PubStatsItem & {
+  geo?: { label: string; value: number; max?: number; color?: string }[];
+  stats?: { conversions?: string | number; views?: string | number };
 };
 
 function PubCard({ pub } : { pub: Pub}) {
@@ -90,7 +108,7 @@ function PubCard({ pub } : { pub: Pub}) {
               <Ligature className="w-5 h-5"/>  
             </div>
             <div>
-                <h4 className="text-red-400 font-bold">{pub.stats.conversions}</h4>
+                <h4 className="text-red-400 font-bold">{pub.stats?.conversions ?? "-"}</h4>
                 <p className="text-xs text-neutral-400">des abon.</p>
 
             </div>
@@ -100,7 +118,7 @@ function PubCard({ pub } : { pub: Pub}) {
               <Ligature className="w-5 h-5"/>  
             </div>
             <div>
-                <h4 className="text-red-400 font-bold">{pub.stats.views}</h4>
+                <h4 className="text-red-400 font-bold">{pub.stats?.views ?? "-"}</h4>
                 <p className="text-xs text-neutral-400">de vues</p>
 
             </div>
@@ -116,13 +134,13 @@ function PubCard({ pub } : { pub: Pub}) {
       <div className="flex-1">
         <h3 className="font-semibold ">Revenu géographique</h3>
         <div className="">
-          {pub.geo.map((g) => (
+          {pub.geo?.map((g) => (
             <div key={g.label}>
               <div className="flex items-center justify-between">
                   <p className="text-sm">{g.label}</p>
                   <p className="text-sm">{g.value.toLocaleString()} f</p>    
               </div>
-              <progress className={`progress w-full ${g.color}`} value={g.value} max={g.max}></progress>
+              <progress className={`progress w-full ${g.color ?? "progress-primary"}`} value={g.value} max={g.max ?? g.value}></progress>
             </div>
           ))}
         </div>

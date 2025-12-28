@@ -5,7 +5,7 @@ import UploadBox from "@/ui/specific/films/components/uploadBox";
 import InputField, { MultipleInputField } from "@/ui/components/inputField";
 import { Controller, useForm } from "react-hook-form";
 import SuggestionsInput from "@/ui/components/suggestionField";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ConfirmationDialog, { DialogStatus } from "@/ui/components/confirmationDialog";
 import { seriesApi } from "@/lib/api/series";
 import { uploadToPresignedUrl } from "@/lib/api/uploads";
@@ -13,26 +13,27 @@ import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { formatApiError } from "@/lib/api/errors";
 import { withRetry } from "@/lib/api/retry";
+import { type CountryEntry, getCountries } from "@/lib/countries";
 
 type SeriesFormData = {
   title: string;
   description: string;
-  status: string;
   language: string;
   productionHouse: string;
   country: string;
-  type: string;
-  price: number | null;
+  blockCountries: string[];
   releaseDate: string;
   publishDate: string;
-  format: string;
   category: string;
-  season: string;
+  seasonCount: number | null;
   genre: string;
-  actors: string;
+  actors: string[];
   director: string;
-  duration: string;
-  secondType: string;
+  ageRating: string;
+  isSafliixProd: boolean;
+  haveSubtitles: boolean;
+  subtitleLanguages: string[];
+  rightHolderId?: string;
   posterFile: File | null;
   heroFile: File | null;
   trailerFile: File | null;
@@ -48,22 +49,22 @@ export default function Page() {
     defaultValues: {
       title: "",
       description: "",
-      status: "",
       language: "",
       productionHouse: "",
       country: "",
-      type: "",
-      price: null,
+      blockCountries: [],
       releaseDate: "",
       publishDate: "",
-      format: "",
       category: "",
-      season: "",
+      seasonCount: null,
       genre: "",
-      actors: "",
+      actors: [],
       director: "",
-      duration: "",
-      secondType: "",
+      ageRating: "",
+      isSafliixProd: true,
+      haveSubtitles: false,
+      subtitleLanguages: [],
+      rightHolderId: "",
       posterFile: null,
       heroFile: null,
       trailerFile: null,
@@ -74,8 +75,13 @@ export default function Page() {
   const [dialogStatus, setDialogStatus] = useState<DialogStatus>("idle");
   const [dialogResult, setDialogResult] = useState<string | null>(null);
   const [pendingData, setPendingData] = useState<SeriesFormData | null>(null);
+  const [countries, setCountries] = useState<CountryEntry[]>([]);
   const toast = useToast();
   const accessToken = useAccessToken();
+
+  useEffect(() => {
+    setCountries(getCountries("fr"));
+  }, []);
 
   const openDialog = (action: "draft" | "publish", data: SeriesFormData) => {
     setDialogAction(action);
@@ -102,21 +108,23 @@ export default function Page() {
       const metadata = {
         title: pendingData.title,
         description: pendingData.description,
-        status: pendingData.status || (dialogAction === "publish" ? "publish" : pendingData.status),
-        language: pendingData.language,
         productionHouse: pendingData.productionHouse,
-        country: pendingData.country,
-        type: pendingData.type,
-        price: pendingData.price,
+        productionCountry: pendingData.country,
         releaseDate: pendingData.releaseDate,
-        publishDate: pendingData.publishDate,
-        format: pendingData.format,
+        plateformDate: pendingData.publishDate,
+        seasonCount: pendingData.seasonCount,
         category: pendingData.category,
-        genre: pendingData.genre,
-        actors: pendingData.actors,
+        entertainmentMode: "SERIE" as const,
+        gender: pendingData.genre,
         director: pendingData.director,
-        duration: pendingData.duration,
-        secondType: pendingData.secondType,
+        actors: (pendingData.actors ?? []).filter(Boolean).map((name) => ({ name })),
+        isSafliixProd: pendingData.isSafliixProd,
+        haveSubtitles: pendingData.haveSubtitles,
+        subtitleLanguages: pendingData.subtitleLanguages,
+        mainLanguage: pendingData.language,
+        ageRating: pendingData.ageRating || undefined,
+        rightHolderId: pendingData.rightHolderId || undefined,
+        blockedCountries: pendingData.blockCountries ?? [],
       };
 
       const { id: seriesId } = await withRetry(
@@ -211,11 +219,17 @@ export default function Page() {
           </div>
           <div className="space-y-2">
             <label className="label text-sm mb-1" htmlFor="image">Acteurs à afficher</label>
-            <div className="flex gap-2 items-center flex-wrap">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <UploadBox key={index} id={`image-${index}`} label={`Acteur ${index + 1}`} className="w-20 h-20" />
-              ))}
-            </div>
+            {pendingData?.actors?.length ? (
+              <div className="flex gap-2 items-center flex-wrap">
+                {pendingData.actors.map((name, index) => (
+                  <UploadBox key={name + index} id={`image-${index}`} label={name} className="w-20 h-20" />
+                ))}
+              </div>
+            ) : (
+              <div className="text-xs text-white/60 bg-base-200/60 border border-base-300 rounded-lg px-3 py-2">
+                Ajoutez des acteurs pour afficher leurs vignettes ici.
+              </div>
+            )}
             <p className="text-xs text-white/60">Veillez à ce que la photo corresponde à la sélection du nom de l’acteur.</p>
           </div>
           <div className="space-y-2">
@@ -237,26 +251,36 @@ export default function Page() {
             {errors.description && <p className="text-red-600 text-sm">{errors.description.message}</p>}
           </div>
           <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" defaultChecked className="checkbox checkbox-sm" /> Production SaFlix
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" defaultChecked className="checkbox checkbox-sm" /> Sous-titre
-            </label>
+            <Controller
+              name="isSafliixProd"
+              control={control}
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  /> Production SaFlix
+                </label>
+              )}
+            />
+            <Controller
+              name="haveSubtitles"
+              control={control}
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  /> Sous-titre
+                </label>
+              )}
+            />
           </div>
           <div className="grid grid-cols-3 gap-3 items-end">
-            <div>
-              <label className="label text-sm mb-1">Statut</label>
-              <Controller
-                name="status"
-                control={control}
-                rules={{ required: 'Le statut est obligatoire' }}
-                render={({ field }) => (
-                  <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />
-                )}
-              />
-              {errors.status && <p className="text-red-600 text-sm">{errors.status.message}</p>}
-            </div>
             <div>
               <label className="label text-sm mb-1">Langue</label>
               <Controller
@@ -268,6 +292,21 @@ export default function Page() {
                 )}
               />
               {errors.language && <p className="text-red-600 text-sm">{errors.language.message}</p>}
+            </div>
+            <div>
+              <label className="label text-sm mb-1">Classification (age)</label>
+              <Controller
+                name="ageRating"
+                control={control}
+                render={({ field }) => (
+                  <InputField
+                    {...field}
+                    value={field.value ?? ""}
+                    placeholder="Ex: R, PG-13"
+                    className="input bg-base-200 border-base-300"
+                  />
+                )}
+              />
             </div>
             <UploadBox id="trailer" label="Sous titre" className="w-full min-h-[80px]" />
           </div>
@@ -308,29 +347,29 @@ export default function Page() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label text-sm mb-1">Type</label>
+              <label className="label text-sm mb-1">Catégorie</label>
               <Controller
-                name="type"
+                name="category"
                 control={control}
                 rules={{ required: 'Obligatoire' }}
                 render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
-              {errors.type && <p className="text-red-600 text-sm">{errors.type.message}</p>}
+              {errors.category && <p className="text-red-600 text-sm">{errors.category.message}</p>}
             </div>
             <div>
-              <label className="label text-sm mb-1">Prix de location</label>
+              <label className="label text-sm mb-1">Genre</label>
               <Controller
-                name="price"
+                name="genre"
                 control={control}
                 rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <InputField type="number" {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
+                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
-              {errors.price && <p className="text-red-600 text-sm">{errors.price.message}</p>}
+              {errors.genre && <p className="text-red-600 text-sm">{errors.genre.message}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label text-sm mb-1">Date de sortie du film</label>
+              <label className="label text-sm mb-1">Date de sortie de la série</label>
               <Controller
                 name="releaseDate"
                 control={control}
@@ -352,61 +391,25 @@ export default function Page() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label text-sm mb-1">Format</label>
+              <label className="label text-sm mb-1">Nombre de saisons</label>
               <Controller
-                name="format"
+                name="seasonCount"
                 control={control}
                 rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
+                render={({ field }) => (
+                  <InputField
+                    type="number"
+                    {...field}
+                    value={field.value ?? ""}
+                    onChange={(e) => field.onChange(e.target.value === "" ? null : Number(e.target.value))}
+                    className="input bg-base-200 border-base-300"
+                  />
+                )}
               />
-              {errors.format && <p className="text-red-600 text-sm">{errors.format.message}</p>}
+              {errors.seasonCount && <p className="text-red-600 text-sm">{errors.seasonCount.message}</p>}
             </div>
             <div>
-              <label className="label text-sm mb-1">Catégorie</label>
-              <Controller
-                name="category"
-                control={control}
-                rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
-              />
-              {errors.category && <p className="text-red-600 text-sm">{errors.category.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label text-sm mb-1">Nombre de saison</label>
-              <Controller
-                name="season"
-                control={control}
-                rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <InputField {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
-              />
-              {errors.season && <p className="text-red-600 text-sm">{errors.season.message}</p>}
-            </div>
-            <div>
-              <label className="label text-sm mb-1">Genre</label>
-              <Controller
-                name="genre"
-                control={control}
-                rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
-              />
-              {errors.genre && <p className="text-red-600 text-sm">{errors.genre.message}</p>}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label text-sm mb-1">Nom des acteurs principaux</label>
-              <Controller
-                name="actors"
-                control={control}
-                rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
-              />
-              {errors.actors && <p className="text-red-600 text-sm">{errors.actors.message}</p>}
-            </div>
-            <div>
-              <label className="label text-sm mb-1">Directeur de production</label>
+              <label className="label text-sm mb-1">Réalisateur</label>
               <Controller
                 name="director"
                 control={control}
@@ -418,24 +421,73 @@ export default function Page() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label text-sm mb-1">Durée du film</label>
+              <label className="label text-sm mb-1">Nom des acteurs principaux</label>
               <Controller
-                name="duration"
+                name="actors"
                 control={control}
                 rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
+                render={({ field }) => (
+                  <ActorsSelector
+                    value={field.value ?? []}
+                    onChange={(val) => field.onChange(val)}
+                  />
+                )}
               />
-              {errors.duration && <p className="text-red-600 text-sm">{errors.duration.message}</p>}
+              {errors.actors && <p className="text-red-600 text-sm">{errors.actors.message}</p>}
             </div>
             <div>
-              <label className="label text-sm mb-1">Type</label>
+              <label className="label text-sm mb-1">Ayant droit</label>
               <Controller
-                name="secondType"
+                name="rightHolderId"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
-                render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
+                render={({ field }) => (
+                  <InputField
+                    {...field}
+                    value={field.value ?? ""}
+                    className="input bg-base-200 border-base-300"
+                    placeholder="ID de l'ayant droit"
+                  />
+                )}
               />
-              {errors.secondType && <p className="text-red-600 text-sm">{errors.secondType.message}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label text-sm mb-1">Pays bloqués</label>
+              <Controller
+                name="blockCountries"
+                control={control}
+                render={({ field }) => (
+                  <CountryMultiSelect
+                    availableCountries={countries}
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+            <div>
+              <label className="label text-sm mb-1">Langues de sous-titres</label>
+              <Controller
+                name="subtitleLanguages"
+                control={control}
+                render={({ field }) => (
+                  <InputField
+                    {...field}
+                    value={(field.value ?? []).join(", ")}
+                    onChange={(e) =>
+                      field.onChange(
+                        e.target.value
+                          .split(",")
+                          .map((v) => v.trim())
+                          .filter(Boolean),
+                      )
+                    }
+                    placeholder="Ex: fr, en"
+                    className="input bg-base-200 border-base-300"
+                  />
+                )}
+              />
             </div>
           </div>
           <div className="w-full flex items-center gap-4 pt-2">
@@ -469,11 +521,159 @@ export default function Page() {
         {pendingData && (
           <div className="text-white/70 text-sm space-y-1">
             <p>Titre : {pendingData.title}</p>
-            <p>Statut : {pendingData.status || dialogAction}</p>
             <p>Langue : {pendingData.language}</p>
           </div>
         )}
       </ConfirmationDialog>
+    </div>
+  );
+}
+function ActorsSelector({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (val: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const [actors, setActors] = useState<string[]>(value ?? []);
+
+  useEffect(() => {
+    setActors((value ?? []).filter(Boolean));
+  }, [value]);
+
+  const commit = (name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    if (actors.includes(clean)) {
+      setInput("");
+      return;
+    }
+    const next = [...actors, clean];
+    setActors(next);
+    onChange(next);
+    setInput("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <input
+          className="input input-bordered w-full bg-base-200 border-base-300"
+          placeholder="Saisir ou sélectionner un acteur"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit(input);
+            }
+          }}
+        />
+        <button type="button" className="btn btn-primary btn-sm" onClick={() => commit(input)}>
+          Ajouter
+        </button>
+      </div>
+      {actors.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {actors.map((actor) => (
+            <span key={actor} className="badge badge-outline border-primary/50 text-primary gap-2">
+              {actor}
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs text-primary"
+                onClick={() => {
+                  const next = actors.filter((a) => a !== actor);
+                  setActors(next);
+                  onChange(next);
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountryMultiSelect({
+  availableCountries,
+  value,
+  onChange,
+}: {
+  availableCountries: CountryEntry[];
+  value: string[];
+  onChange: (codes: string[]) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const toggle = (code: string) => {
+    if (value.includes(code)) {
+      onChange(value.filter((c) => c !== code));
+    } else {
+      onChange([...value, code]);
+    }
+  };
+  const filtered = useMemo(
+    () =>
+      availableCountries.filter(
+        (c) =>
+          c.code.toLowerCase().includes(search.toLowerCase()) ||
+          c.name.toLowerCase().includes(search.toLowerCase()),
+      ),
+    [availableCountries, search],
+  );
+
+  return (
+    <div className="space-y-2">
+      <input
+        className="input input-bordered w-full bg-base-200 border-base-300"
+        placeholder="Rechercher un pays"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      <div className="max-h-48 overflow-y-auto space-y-1 border border-base-300 rounded-lg p-2 bg-base-200/60">
+        {filtered.map((country) => {
+          const selected = value.includes(country.code);
+          return (
+            <label key={country.code} className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                className="checkbox checkbox-sm checkbox-primary"
+                checked={selected}
+                onChange={() => toggle(country.code)}
+              />
+              <span className="text-lg">{country.flag}</span>
+              <span className="text-white/80">{country.name}</span>
+            </label>
+          );
+        })}
+        {filtered.length === 0 && <div className="text-xs text-white/60">Aucun pays trouvé</div>}
+      </div>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {value.map((code) => {
+            const country = availableCountries.find((c) => c.code === code);
+            return (
+              <span
+                key={code}
+                className="badge badge-outline border-primary/40 text-primary gap-2"
+                title={country?.name || code}
+              >
+                {country?.flag} {code}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs text-primary"
+                  onClick={() => toggle(code)}
+                >
+                  ✕
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

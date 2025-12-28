@@ -50,23 +50,35 @@ export interface FilmDetail {
   dp: string;
   description?: string;
   language?: string;
+  mainLanguage?: string;
   productionHouse?: string;
   country?: string;
+  productionCountry?: string;
   type?: string;
   format?: string;
   genre?: string;
-  actors?: string;
+  gender?: string;
+  actors?: string | string[] | { name: string; actorId?: string }[];
   secondType?: string;
-  duration: string;
+  duration: string | number;
   releaseDate: string;
   publishDate: string;
+  plateformDate?: string;
   price: number;
+  rentalPrice?: number | null;
   poster: string;
   hero: string;
   synopsis: string;
   stats?: FilmStats;
   activity?: unknown[];
   geo?: FilmGeoPoint[];
+  blockCountries?: string[];
+  entertainmentMode?: string;
+  ageRating?: string;
+  rightHolderId?: string;
+  isSafliixProd?: boolean;
+  haveSubtitles?: boolean;
+  subtitleLanguages?: string[];
 }
 
 export interface FilmActionPayload {
@@ -95,40 +107,79 @@ export interface FilmUploadFinalizePayload {
   uploads: Array<Pick<FilmUploadSlot, "key" | "finalUrl">>;
 }
 
-export interface FilmMetaOptions {
-  types: string[];
-  categories: string[];
-  formats: string[];
-  languages: string[];
-  genres: string[];
-  actors: string[];
-  countries: string[];
-  productionHouses: string[];
-  [key: string]: string[];
+export interface FilmMetaCategory {
+  id: string;
+  category: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface FilmMetaOptionsResponse {
-  options: FilmMetaOptions;
+export interface FilmMetaFormat {
+  id: string;
+  format: string;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FilmMetaGenre {
+  id: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FilmMetaActor {
+  id: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FilmMetaRightHolder {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  sharePercentage?: number;
+}
+
+export interface FilmMetaOptions {
+  types: string[];
+  categories: FilmMetaCategory[];
+  formats: FilmMetaFormat[];
+  genres: FilmMetaGenre[];
+  actors: FilmMetaActor[];
+  countries: string[];
+  productionHouses: string[];
+  rightHolders: FilmMetaRightHolder[];
+  languages?: string[];
 }
 
 export interface FilmMetadataPayload {
   title: string;
   description: string;
-  status: FilmStatus;
-  language: string;
   productionHouse: string;
-  country: string;
+  productionCountry: string;
   type: string;
-  price: number | null;
+  rentalPrice: number | null;
   releaseDate: string;
-  publishDate: string;
+  plateformDate: string;
   format: string;
   category: string;
-  genre: string;
-  actors: string;
+  entertainmentMode: string;
+  gender: string;
   director: string;
-  duration: string;
-  secondType: string;
+  actors: { actorId?: string; name: string }[];
+  isSafliixProd: boolean;
+  haveSubtitles: boolean;
+  subtitleLanguages?: string[];
+  mainLanguage: string;
+  ageRating?: string;
+  duration: number | null;
+  rightHolderId?: string;
+  blockedCountries?: string[];
 }
 
 export interface FilmCreateOrUpdateResponse {

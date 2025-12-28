@@ -4,14 +4,14 @@ Dashboard général (/dashboard)
 - GET /dashboard/repartition : Params { from?, to? }. Retour : { countries: [{ name, value }], locationVsSubscription: series[] }.
 
 Films
-- GET /films : Query { page, pageSize, search?, status?, category?, sort? }. Retour : { items: [{ id, title, status, director, dp, category, poster, hero, stats, geo, stars, donut }], pageInfo }.
-- GET /films/:id : Retour : { id, title, status, category, director, dp, duration, releaseDate, publishDate, price, poster, hero, synopsis, stats{ vues, revenus, locations?, abonnements? }, activity[], geo[] }.
-- POST /films/:id/actions (publier|pause) : Body { action: "publish"|"pause" }. Retour : { status }.
-- POST /films (create) / PUT /films/:id (update) : Body JSON métadonnées { title, description, status, language, productionHouse, country, type, price, releaseDate, publishDate, format, category, genre, actors, director, duration, secondType }. Retour : { id }.
-- POST /films/:id/uploads/presign : Body { files: [{ key: "main_image"|"secondary_image"|"trailer"|"movie", name, type }] }. Retour : [{ key, uploadUrl, finalUrl }].
+- GET /admin/movies : Query { page, pageSize, search?, status?, category?, sort? }. Retour : { items: [{ id, title, status, director, dp, category, poster, hero, stats, geo, stars, donut }], pageInfo }.
+- GET /admin/movies/:id : Retour : { id, title, status, category, director, dp, duration, releaseDate, publishDate, price, poster, hero, synopsis, stats{ vues, revenus, locations?, abonnements? }, activity[], geo[] }.
+- POST /admin/movies/:id/actions (publier|pause) : Body { action: "publish"|"pause" }. Retour : { status }.
+- POST /admin/movies (create) / PUT /admin/movies/:id (update) : Body JSON métadonnées { title, description, status, language, productionHouse, country, type, price, releaseDate, publishDate, format, category, genre, actors, director, duration, secondType }. Retour : { id }.
+- POST /admin/movies/:id/uploads/presign : Body { files: [{ key: "main_image"|"secondary_image"|"trailer"|"movie", name, type }] }. Retour : [{ key, uploadUrl, finalUrl }].
 - PUT upload direct vers uploadUrl (Content-Type: type du fichier). Pas de retour JSON (204).
-- POST /films/:id/uploads/finalize : Body { uploads: [{ key, finalUrl }] }. Retour : { ok: true }.
-- GET /films/meta/options : Retour listes (types, catégories, formats, langues, genres, acteurs, pays, maisonsProd).
+- POST /admin/movies/:id/uploads/finalize : Body { uploads: [{ key, finalUrl }] }. Retour : { ok: true }.
+- GET /admin/movies/meta/options : Retour listes (types, catégories, formats, langues, genres, acteurs, pays, maisonsProd).
 
 Séries
 - GET /series : Query { page, pageSize, search?, status?, category?, sort? }. Retour : { items: [{ id, title, status, director, dp, number, category, poster, hero, stats, stars, geo, donut }], pageInfo }.

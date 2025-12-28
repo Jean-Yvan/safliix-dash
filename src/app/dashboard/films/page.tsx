@@ -45,7 +45,7 @@ export default function Page() {
 			try {
 				const res = await filmsApi.list({ page: 1, pageSize: 10 }, accessToken);
 				if (cancelled) return;
-				setFilms(res.items);
+				setFilms(res?.items ?? []);
 			} catch (err) {
 				if (cancelled || controller.signal.aborted) return;
 				const friendly = formatApiError(err);
@@ -194,7 +194,7 @@ export default function Page() {
 				{error && <div className="alert alert-error text-sm">{error}</div>}
 
 				<div className="space-y-4">
-					{films.map((film) => (
+					{(films ?? []).map((film) => (
 						<VideoCard
 							key={film.id}
 							film={film}
