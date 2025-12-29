@@ -89,12 +89,13 @@ export interface FilmActionResponse {
   status: FilmStatus;
 }
 
-export type FilmUploadKey = "main_image" | "secondary_image" | "trailer" | "movie";
+export type FilmUploadKey = "main" | "secondary" | "trailer" | "movie";
 
 export interface FilmUploadFileDescriptor {
   key: FilmUploadKey;
   name: string;
   type: string;
+  attachmentType: "MAIN" | "TRAILER" | "BONUS" | "MAKING_OF" | "CLIP" | "PREVIEW" | "ADVERTISEMENT" | "THUMBNAIL" | "POSTER" | "BANNER";
 }
 
 export interface FilmUploadSlot {

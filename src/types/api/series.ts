@@ -160,7 +160,12 @@ export interface EpisodeMetadataPayload {
 }
 
 export type EpisodeUploadKey = "poster" | "video" | "subtitle";
-export interface EpisodeUploadDescriptor { key: EpisodeUploadKey; name: string; type: string }
+export interface EpisodeUploadDescriptor {
+  key: EpisodeUploadKey;
+  name: string;
+  type: string;
+  attachmentType: "MAIN" | "TRAILER" | "BONUS" | "MAKING_OF" | "CLIP" | "PREVIEW" | "ADVERTISEMENT" | "THUMBNAIL" | "POSTER" | "BANNER";
+}
 export interface EpisodeUploadSlot {
   key: EpisodeUploadKey;
   uploadUrl: string;

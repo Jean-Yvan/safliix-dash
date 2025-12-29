@@ -4,6 +4,7 @@ import { formatApiError } from "@/lib/api/errors";
 import { uploadToPresignedUrl } from "@/lib/api/uploads";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { useAccessToken } from "@/lib/auth/useAccessToken";
+import { type EpisodeUploadDescriptor } from "@/types/api/series";
 import { useEpisodeFormSteps } from "./useEpisodeFormSteps";
 
 export type EpisodeForm = {
@@ -25,11 +26,6 @@ type EpisodeFiles = {
   subtitle?: File;
 };
 
-type EpisodeFileDescriptor = {
-  kind: "poster" | "video" | "subtitle";
-  file: File;
-};
-
 const statusOptions = ["DRAFT", "PUBLISHED"] as const;
 
 export function useEpisodeForm(seriesId?: string, seasonId?: string) {
@@ -46,6 +42,9 @@ export function useEpisodeForm(seriesId?: string, seasonId?: string) {
     actors: "",
   });
   const [files, setFiles] = useState<EpisodeFiles>({});
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [metaSaved, setMetaSaved] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"meta" | "files">("meta");
 
   const steps = useEpisodeFormSteps();
   const toast = useToast();
@@ -71,37 +70,84 @@ export function useEpisodeForm(seriesId?: string, seasonId?: string) {
     episodeNumber: form.episodeNumber ?? 0,
   });
 
-  const collectFiles = (): EpisodeFileDescriptor[] => {
-    const bucket: EpisodeFileDescriptor[] = [];
-    if (files.poster) bucket.push({ kind: "poster", file: files.poster });
-    if (files.video) bucket.push({ kind: "video", file: files.video });
-    if (files.subtitle) bucket.push({ kind: "subtitle", file: files.subtitle });
+  type UploadWithFile = EpisodeUploadDescriptor & { file: File };
+
+  const collectFiles = (): UploadWithFile[] => {
+    const bucket: UploadWithFile[] = [];
+    if (files.poster)
+      bucket.push({
+        key: "poster",
+        file: files.poster,
+        name: files.poster.name,
+        type: files.poster.type || "application/octet-stream",
+        attachmentType: "POSTER",
+      });
+    if (files.video)
+      bucket.push({
+        key: "video",
+        file: files.video,
+        name: files.video.name,
+        type: files.video.type || "application/octet-stream",
+        attachmentType: "MAIN",
+      });
+    if (files.subtitle)
+      bucket.push({
+        key: "subtitle",
+        file: files.subtitle,
+        name: files.subtitle.name,
+        type: files.subtitle.type || "application/octet-stream",
+        attachmentType: "BONUS",
+      });
     return bucket;
   };
 
-  const submit = async (action: "draft" | "publish") => {
+  const saveMeta = async (status: "DRAFT" | "PUBLISHED") => {
     if (!seasonId) {
       steps.setResult(false, "Aucune saison cible.");
       toast.error({ title: "Episode", description: "Aucune saison cible." });
       return;
     }
-
     steps.setLoading();
     try {
-      const meta = { ...buildMetadataPayload(), status: action === "publish" ? "PUBLISHED" : "DRAFT" };
-      const uploadables = collectFiles();
+      const meta = { ...buildMetadataPayload(), status };
+      const { id } = await seriesApi.createEpisode(seriesId ?? "", seasonId, meta, accessToken);
+      setEpisodeId(id);
+      setMetaSaved(true);
+      steps.setResult(true, "Métadonnées enregistrées. Ajoutez les fichiers si besoin.");
+      toast.success({ title: "Episode", description: "Métadonnées enregistrées." });
+      setDialogMode("files");
+    } catch (error) {
+      const friendly = formatApiError(error);
+      steps.setResult(false, friendly.message);
+      toast.error({ title: "Episode", description: friendly.message });
+    } finally {
+      steps.setLoading(false);
+    }
+  };
 
-      const { id: episodeId } = await seriesApi.createEpisode(seriesId ?? "", seasonId, meta, accessToken);
-
+  const submitFilesOnly = async (action: "draft" | "publish") => {
+    if (!episodeId) {
+      steps.setResult(false, "Enregistrez d'abord les métadonnées.");
+      toast.error({ title: "Episode", description: "Enregistrez d'abord les métadonnées." });
+      return;
+    }
+    const uploadables = collectFiles();
+    steps.setLoading();
+    try {
       if (uploadables.length) {
         const slots = await seriesApi.presignEpisodeUploads(
           episodeId,
-          uploadables.map((f) => ({ key: f.kind, name: f.file.name, type: f.file.type })),
+          uploadables.map((f) => ({
+            key: f.key,
+            name: f.name,
+            type: f.type,
+            attachmentType: f.attachmentType,
+          })),
           accessToken,
         );
 
         for (const slot of slots) {
-          const file = uploadables.find((f) => f.kind === slot.key)?.file;
+          const file = uploadables.find((f) => f.key === slot.key)?.file;
           if (file) {
             await uploadToPresignedUrl(slot.uploadUrl, file);
           }
@@ -113,16 +159,17 @@ export function useEpisodeForm(seriesId?: string, seasonId?: string) {
           accessToken,
         );
       }
-
-      steps.setResult(true, action === "publish" ? "Episode publié." : "Brouillon enregistré.");
+      steps.setResult(true, action === "publish" ? "Fichiers envoyés, épisode publié." : "Fichiers envoyés.");
       toast.success({
         title: "Episode",
-        description: action === "publish" ? "Episode publié." : "Brouillon enregistré.",
+        description: uploadables.length ? "Fichiers envoyés." : "Aucun fichier à envoyer.",
       });
     } catch (error) {
       const friendly = formatApiError(error);
       steps.setResult(false, friendly.message);
       toast.error({ title: "Episode", description: friendly.message });
+    } finally {
+      steps.setLoading(false);
     }
   };
 
@@ -134,8 +181,13 @@ export function useEpisodeForm(seriesId?: string, seasonId?: string) {
     statusOptions,
     buildMetadataPayload,
     collectFiles,
-    submitDraft: () => submit("draft"),
-    submitPublish: () => submit("publish"),
+    submitDraft: () => saveMeta("DRAFT"),
+    submitPublish: () => saveMeta("PUBLISHED"),
+    submitFilesOnly,
+    metaSaved,
+    episodeId,
+    dialogMode,
+    setDialogMode,
     ...steps,
   };
 }

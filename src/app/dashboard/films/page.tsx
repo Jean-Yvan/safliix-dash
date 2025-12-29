@@ -11,6 +11,32 @@ import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { formatApiError } from "@/lib/api/errors";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 
+type FilmListItemWithRightsholder = {
+	id: string;
+	title: string;
+	status: string;
+	director?: string;
+	dp?: string;
+	number?: string | number;
+	category?: string;
+	poster?: string;
+	hero?: string;
+	stats?: Record<string, unknown>;
+	geo?: { label?: string; name?: string; value?: number; max?: number; color?: string }[];
+	stars?: number;
+	donut?: { label?: string; value: number; color?: string };
+	rightHolderId?: string;
+	rightHolderName?: string;
+	rightsholderName?: string;
+	rightHolder?: string;
+};
+
+type RightsholderGroup<T> = {
+	rightsholderId: string;
+	rightsholderName: string;
+	items: T[];
+};
+
 export default function Page() {
 	const [mode, setMode] = useState<"location" | "abonnement">("location");
 	const [showEncoding, setShowEncoding] = useState(true);
@@ -30,11 +56,27 @@ export default function Page() {
 			? ["Filtrer par statut", "Catégorie de film", "Meilleures ventes", "Dernier ajout"]
 			: ["Filtrer par statut", "Catégorie de film", "Dernier ajout"];
 
-	const [films, setFilms] = useState<any[]>([]);
+	const [filmsByRightsholder, setFilmsByRightsholder] = useState<RightsholderGroup<FilmListItemWithRightsholder>[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const accessToken = useAccessToken();
 	const toast = useToast();
+
+	const normalizeRightsholderName = (item: FilmListItemWithRightsholder) =>
+		item.rightHolderName || item.rightsholderName || item.rightHolder || "Ayant droit inconnu";
+
+	const groupByRightsholder = (items: FilmListItemWithRightsholder[]) => {
+		const map = new Map<string, RightsholderGroup<FilmListItemWithRightsholder>>();
+		items.forEach((item) => {
+			const name = normalizeRightsholderName(item);
+			const id = item.rightHolderId || name || "unknown";
+			if (!map.has(id)) {
+				map.set(id, { rightsholderId: String(id), rightsholderName: name, items: [] });
+			}
+			map.get(id)!.items.push(item);
+		});
+		return Array.from(map.values());
+	};
 
 	useEffect(() => {
 		let cancelled = false;
@@ -45,7 +87,21 @@ export default function Page() {
 			try {
 				const res = await filmsApi.list({ page: 1, pageSize: 10 }, accessToken);
 				if (cancelled) return;
-				setFilms(res?.items ?? []);
+				const grouped =
+					(Array.isArray((res as any)?.rightsholders) && (res as any).rightsholders) ||
+					(Array.isArray((res as any)?.groups) && (res as any).groups);
+
+				if (grouped) {
+					setFilmsByRightsholder(
+						(grouped as any[]).map((g) => ({
+							rightsholderId: g.rightsholderId || g.rightHolderId || g.id || g.name || "unknown",
+							rightsholderName: g.rightsholderName || g.rightHolderName || g.name || "Ayant droit inconnu",
+							items: g.items || [],
+						}))
+					);
+				} else {
+					setFilmsByRightsholder(groupByRightsholder((res?.items as FilmListItemWithRightsholder[]) ?? []));
+				}
 			} catch (err) {
 				if (cancelled || controller.signal.aborted) return;
 				const friendly = formatApiError(err);
@@ -193,16 +249,26 @@ export default function Page() {
 				{loading && <div className="alert alert-info text-sm">Chargement des films...</div>}
 				{error && <div className="alert alert-error text-sm">{error}</div>}
 
-				<div className="space-y-4">
-					{(films ?? []).map((film) => (
-						<VideoCard
-							key={film.id}
-							film={film}
-							mode={mode}
-							detailHref={`/dashboard/films/detail/${film.id}`}
-						/>
+				<div className="space-y-6">
+					{filmsByRightsholder.map((group) => (
+						<div key={group.rightsholderId} className="space-y-3">
+							<div className="flex items-center gap-2">
+								<div className="badge badge-primary badge-outline">{group.rightsholderName}</div>
+								<span className="text-sm text-white/60">({group.items.length} film{group.items.length > 1 ? "s" : ""})</span>
+							</div>
+							<div className="space-y-4">
+								{group.items.map((film) => (
+									<VideoCard
+										key={film.id}
+										film={film as any}
+										mode={mode}
+										detailHref={`/dashboard/films/detail/${film.id}`}
+									/>
+								))}
+							</div>
+						</div>
 					))}
-					{!loading && !error && films.length === 0 && (
+					{!loading && !error && filmsByRightsholder.length === 0 && (
 						<div className="text-sm text-white/70">Aucun film à afficher.</div>
 					)}
 				</div>

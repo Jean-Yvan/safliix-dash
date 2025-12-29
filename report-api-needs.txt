@@ -1,0 +1,135 @@
+Rapports généraux : besoins côté API pour générer les PDFs
+
+1) Rapport général financier (location)
+- Endpoint conseillé : GET /reports/general/rentals?from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { from, to, generatedAt?, currency? }
+ - items: [
+      { id, rightsholderName, title, category, format, rentalsCount, revenue }
+    ]
+- Notes : revenue peut être 0 si non dispo ; currency optionnelle si toujours en XOF/EUR/USD. Le front affiche les colonnes : N° d’ordre (id ou index), Nom de l’ayant droit, Titre du film, Catégorie, Format, Nombre de locations, Total revenus.
+
+2) Rapport général financier (abonnement)
+- Endpoint conseillé : GET /reports/general/subscriptions?from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { from, to, generatedAt?, currency? }
+  - items: [
+      {
+        id,
+        rightsholderName,
+        title,
+        category,
+        format,
+        subscriptionsCount,
+        catalogDurationMinutes,
+        watchTimeMinutes,
+        watchTimePct,          // ex: 0.42 pour 42%
+        revenue
+      }
+    ]
+- Colonnes côté PDF : N° d’ordre, Nom de l’ayant droit, Titre du film, Catégorie, Format, Nombre d’abonnements, Temps total du catalogue, Temps de visionnage, % du temps de visionnage, Revenus des abonnements.
+
+3) Rapport général des pubs
+- Endpoint conseillé : GET /reports/general/ads?from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { from, to, generatedAt? }
+  - items: [
+      { id, clientName, adTitle, views, clicks }
+    ]
+- Colonnes côté PDF : N° d’ordre, Clients, Titre de la pub, Nombre de vus, Nombre de clique.
+
+4) Rapport financier de location (par ayant droit)
+- Endpoint conseillé : GET /reports/rentals?rightsholderId=...&from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { rightsholderName, from, to, generatedAt?, currency? }
+  - items: [
+      { id, title, category, format, rentalsCount, revenue }
+    ]
+- Colonnes : N° d’ordre, Titre du film, Catégorie, Format, Nombre de locations (total revenus facultatif si fourni).
+
+5) Rapport financier des abonnements (par ayant droit)
+- Endpoint conseillé : GET /reports/subscriptions?rightsholderId=...&from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { rightsholderName, from, to, generatedAt?, currency? }
+  - items: [
+      {
+        id,
+        title,
+        category,
+        format,
+        subscriptionsCount,
+        catalogDurationMinutes,
+        watchTimeMinutes,
+        watchTimePct,
+        revenue
+      }
+    ]
+- Colonnes : N° d’ordre, Titre du film, Catégorie, Format, Nombre d’abonnements, Temps total du catalogue, Temps de visionnage, % du temps de visionnage, Revenus des abonnements.
+
+6) Rapport des pubs par client
+- Endpoint conseillé : GET /reports/ads/by-client?clientId=...&from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { clientName, from, to, generatedAt? }
+  - items: [
+      { id, adTitle, views, clicks }
+    ]
+- Colonnes : N° d’ordre, Titre de la pub, Nombre de vus, Nombre de clique.
+
+7) Liste des utilisateurs
+- Endpoint conseillé : GET /reports/users?from=YYYY-MM-DD&to=YYYY-MM-DD (filtres optionnels search/status/country)
+- Retour attendu :
+  - meta: { from, to, generatedAt? }
+  - items: [
+      { id, fullName, country, email, phone }
+    ]
+- Colonnes : N° d’ordre, Nom et prénoms, Pays, Mail, Téléphone.
+
+8) Liste des films
+- Endpoint conseillé (refactor regroupé par ayant droit) :
+  - GET /reports/rightsholders?type=movie&from=YYYY-MM-DD&to=YYYY-MM-DD
+    Retour : [
+      {
+        rightsholderId,
+        rightsholderName,
+        items: [
+          { id, title, category, format }
+        ]
+      }
+    ]
+  - (Option si besoin de détail d’un seul) GET /reports/rightsholders/:id/movies?from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { from, to, generatedAt? }
+  - items (flatten côté front à l’affichage ou regroupé visuellement) : mêmes champs que ci-dessus.
+- Colonnes : N° d’ordre, Nom de l’ayant droit, Titre du film, Catégorie, Format (avec regroupement visuel par ayant droit).
+
+9) Liste des séries
+- Endpoint conseillé (refactor regroupé par ayant droit) :
+  - GET /reports/rightsholders?type=series&from=YYYY-MM-DD&to=YYYY-MM-DD
+    Retour : [
+      {
+        rightsholderId,
+        rightsholderName,
+        items: [
+          { id, title, category, format }
+        ]
+      }
+    ]
+  - (Option) GET /reports/rightsholders/:id/series?from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { from, to, generatedAt? }
+  - items : mêmes champs ; le front regroupe par ayant droit.
+- Colonnes : N° d’ordre, Nom de l’ayant droit, Titre de la série, Catégorie, Format (regroupé).
+
+10) Liste des vidéos divers
+- Endpoint conseillé : GET /reports/videos?from=YYYY-MM-DD&to=YYYY-MM-DD
+- Retour attendu :
+  - meta: { from, to, generatedAt? }
+  - items: [
+      { id, rightsholderName, title, category, format }
+    ]
+- Colonnes : N° d’ordre, Nom de l’ayant droit, Titre de la vidéo, Catégorie, Format.
+
+Rappels généraux
+- Les dates from/to sont passées par le front et doivent être renvoyées dans meta pour affichage de la période (“Période from au to”).
+- Les items doivent déjà être filtrés/triés côté API ; le front ne pagine pas dans le PDF (exporte tout le jeu de données pour la période).
+- Si des totaux globaux sont nécessaires (ex: revenueTotal, totalViews/clicks), les inclure dans meta. Pour l’instant les modèles fournis n’affichent que les lignes détaillées.

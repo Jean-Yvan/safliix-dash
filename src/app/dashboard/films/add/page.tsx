@@ -10,32 +10,35 @@ import { Controller, useWatch } from "react-hook-form";
 import SuggestionsInput from "@/ui/components/suggestionField";
 import { useSearchParams } from "next/navigation";
 import { type CountryEntry, getCountries } from "@/lib/countries";
+import Image from "next/image";
 
 function ActorsSelector({
 	value,
 	onChange,
 	options,
 }: {
-	value: string[];
-	onChange: (val: string[]) => void;
+	value: { actorId?: string; name: string }[];
+	onChange: (val: { actorId?: string; name: string }[]) => void;
 	options: SuggestionOption[];
 }) {
 	const [input, setInput] = React.useState("");
-	const [actors, setActors] = React.useState<string[]>(value ?? []);
+	const [actors, setActors] = React.useState<{ actorId?: string; name: string }[]>(value ?? []);
 
-	// Synchronise avec la valeur du formulaire (préremplissage / reset)
 	React.useEffect(() => {
-		setActors((value ?? []).filter(Boolean));
+		setActors((value ?? []).filter((a) => a && a.name));
 	}, [value]);
 
 	const commit = (name: string) => {
 		const clean = name.trim();
 		if (!clean) return;
-		if (actors.includes(clean)) {
+		const existing = actors.find((a) => a.name.toLowerCase() === clean.toLowerCase());
+		if (existing) {
 			setInput("");
 			return;
 		}
-		const next = [...actors, clean];
+		const matched = options.find((opt) => opt.label.toLowerCase() === clean.toLowerCase());
+		const actor = matched ? { name: matched.label, actorId: matched.value !== matched.label ? matched.value : undefined } : { name: clean };
+		const next = [...actors, actor];
 		setActors(next);
 		onChange(next);
 		setInput("");
@@ -69,13 +72,13 @@ function ActorsSelector({
 			{actors.length > 0 && (
 				<div className="flex flex-wrap gap-2">
 					{actors.map((actor) => (
-						<span key={actor} className="badge badge-outline border-primary/50 text-primary gap-2">
-							{actor}
+						<span key={actor.actorId ?? actor.name} className="badge badge-outline border-primary/50 text-primary gap-2">
+							{actor.name}
 							<button
 								type="button"
 								className="btn btn-ghost btn-xs text-primary"
 								onClick={() => {
-									const next = actors.filter((a) => a !== actor);
+									const next = actors.filter((a) => (a.actorId ?? a.name) !== (actor.actorId ?? actor.name));
 									setActors(next);
 									onChange(next);
 								}}
@@ -100,6 +103,7 @@ function CountryMultiSelect({
 	onChange: (codes: string[]) => void;
 }) {
 	const [search, setSearch] = React.useState("");
+	const showList = search.trim().length > 0;
 	const toggle = (code: string) => {
 		if (value.includes(code)) {
 			onChange(value.filter((c) => c !== code));
@@ -125,24 +129,26 @@ function CountryMultiSelect({
 				value={search}
 				onChange={(e) => setSearch(e.target.value)}
 			/>
-			<div className="max-h-48 overflow-y-auto space-y-1 border border-base-300 rounded-lg p-2 bg-base-200/60">
-				{filtered.map((country) => {
-					const selected = value.includes(country.code);
-					return (
-						<label key={country.code} className="flex items-center gap-2 text-sm cursor-pointer">
-							<input
-								type="checkbox"
-								className="checkbox checkbox-sm checkbox-primary"
-								checked={selected}
-								onChange={() => toggle(country.code)}
-							/>
-							<span className="text-lg">{country.flag}</span>
-							<span className="text-white/80">{country.name}</span>
-						</label>
-					);
-				})}
-				{filtered.length === 0 && <div className="text-xs text-white/60">Aucun pays trouvé</div>}
-			</div>
+			{showList && (
+				<div className="max-h-48 overflow-y-auto space-y-1 border border-base-300 rounded-lg p-2 bg-base-200/60">
+					{filtered.map((country) => {
+						const selected = value.includes(country.code);
+						return (
+							<label key={country.code} className="flex items-center gap-2 text-sm cursor-pointer">
+								<input
+									type="checkbox"
+									className="checkbox checkbox-sm checkbox-primary"
+									checked={selected}
+									onChange={() => toggle(country.code)}
+								/>
+								<span className="text-lg">{country.flag}</span>
+								<span className="text-white/80">{country.name}</span>
+							</label>
+						);
+					})}
+					{filtered.length === 0 && <div className="text-xs text-white/60">Aucun pays trouvé</div>}
+				</div>
+			)}
 			{value.length > 0 && (
 				<div className="flex flex-wrap gap-2">
 					{value.map((code) => {
@@ -170,6 +176,54 @@ function CountryMultiSelect({
 	);
 }
 
+function VideoUpload({
+	id,
+	label,
+	fileLabel,
+	file,
+	onSelect,
+	onPreview,
+}: {
+	id: string;
+	label: string;
+	fileLabel: string;
+	file: File | null;
+	onSelect: (file?: File | null) => void;
+	onPreview: (url: string) => void;
+}) {
+	return (
+		<label
+			htmlFor={id}
+			className="flex flex-col justify-center border-2 border-dashed border-base-300 rounded-xl bg-base-100/5 min-h-[140px] cursor-pointer px-4 py-6 text-center text-white/80"
+		>
+			<span className="text-4xl mb-2">🎬</span>
+			<span className="text-sm mb-2">{label}</span>
+			<span className="text-xs text-white/60">{file ? file.name : fileLabel}</span>
+			<input
+				id={id}
+				type="file"
+				accept="video/*"
+				className="hidden"
+				onChange={(e) => onSelect(e.target.files?.[0] ?? null)}
+			/>
+			{file && (
+				<div className="mt-2 flex justify-center">
+					<button
+						type="button"
+						className="btn btn-outline btn-primary btn-xs"
+						onClick={() => {
+							const url = URL.createObjectURL(file);
+							onPreview(url);
+						}}
+					>
+						Prévisualiser
+					</button>
+				</div>
+			)}
+		</label>
+	);
+}
+
 export default function Page() {
 
 	const {
@@ -187,6 +241,8 @@ export default function Page() {
 		pendingFilm,
 		setFilmId,
 		pendingAction,
+		setPendingAction,
+		resetForm,
 		prefillLoading,
 		prefillError,
 		progressStep,
@@ -195,7 +251,6 @@ export default function Page() {
 		options,
 		optionsLoading,
 		optionsError,
-		previewUrl,
 		saveMetadataOnly,
 		metaSaving,
 	} = useFilmForm();
@@ -203,7 +258,10 @@ export default function Page() {
 	const [countries, setCountries] = useState<CountryEntry[]>([]);
 	const [uiStep, setUiStep] = useState<"meta" | "files">("meta");
 	const typeValue = useWatch({ control, name: "type" });
-	const actorNames = useMemo(() => (actorsValue || []).filter(Boolean), [actorsValue]);
+	const movieFile = useWatch({ control, name: "movieFile" }) as File | null;
+	const trailerFile = useWatch({ control, name: "trailerFile" }) as File | null;
+	const [videoPreview, setVideoPreview] = useState<string | null>(null);
+	const [showVideoModal, setShowVideoModal] = useState(false);
 
 	useEffect(() => {
 		const id = searchParams.get("id");
@@ -238,12 +296,7 @@ export default function Page() {
 			<form
 				onSubmit={handleSubmit(async (data) => {
 					if (uiStep === "meta") {
-						try {
-							await saveMetadataOnly(data);
-							setUiStep("files");
-						} catch {
-							/* toast déjà géré */
-						}
+						openConfirm(data, "meta");
 						return;
 					}
 					openConfirm(data, "publish");
@@ -253,11 +306,7 @@ export default function Page() {
 				<div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 					<div className="lg:col-span-4">
 						<div className="bg-base-200/40 border border-base-300 rounded-xl p-4 h-full flex items-center justify-center overflow-hidden">
-							{previewUrl ? (
-								<img src={previewUrl} alt="Aperçu visuel" className="rounded-lg max-h-full object-cover" />
-							) : (
-								<span className="text-white/70 text-sm text-center">Ajoutez une image principale pour l’aperçu.</span>
-							)}
+							<Image src="/ICONE_SFLIX.png" alt="SaFlix" width={240} height={240} className="object-contain" />
 						</div>
 					</div>
 
@@ -474,12 +523,12 @@ export default function Page() {
 											}}
 											render={({ field }) => (
 												<ActorsSelector
-													value={field.value ?? []}
-													onChange={(val) => field.onChange(val)}
-													options={options.actors}
-												/>
-											)}
-										/>
+												value={field.value ?? []}
+												onChange={(val) => field.onChange(val)}
+												options={options.actors}
+											/>
+										)}
+									/>
 										{errors.actors && <p className="text-red-600 text-sm">{errors.actors.message}</p>}
 									</div>
 									<div>
@@ -640,12 +689,7 @@ export default function Page() {
 										type="button"
 										className="btn btn-primary"
 										onClick={handleSubmit(async (data) => {
-											try {
-												await saveMetadataOnly(data);
-												setUiStep("files");
-											} catch {
-												/* erreurs déjà notifiées */
-											}
+											openConfirm(data, "meta");
 										})}
 										disabled={prefillLoading || metaSaving}
 									>
@@ -670,41 +714,28 @@ export default function Page() {
 										className="col-span-3 min-h-[100px]"
 										onFileSelect={(file) => setValue("secondaryImage", file ?? null, { shouldValidate: false })}
 									/>
-									<UploadBox
-										id="qua"
-										label="Film upload"
-										className="col-span-3 min-h-[100px]"
-										onFileSelect={(file) => setValue("movieFile", file ?? null, { shouldValidate: false })}
+									<VideoUpload
+										id="film-file"
+										label={typeValue?.toLowerCase() === "abonnement" ? "Vidéo (optionnel)" : "Vidéo du film"}
+										fileLabel="Choisir une vidéo"
+										file={movieFile}
+										onSelect={(file) => setValue("movieFile", file ?? null, { shouldValidate: false })}
+										onPreview={(url) => {
+											setVideoPreview(url);
+											setShowVideoModal(true);
+										}}
 									/>
-									<UploadBox
-										id="tert"
+									<VideoUpload
+										id="trailer-file"
 										label="Bande annonce"
-										className="col-span-3 row-span-1 min-h-[100px]"
-										onFileSelect={(file) => setValue("trailerFile", file ?? null, { shouldValidate: false })}
+										fileLabel="Choisir une bande annonce"
+										file={trailerFile}
+										onSelect={(file) => setValue("trailerFile", file ?? null, { shouldValidate: false })}
+										onPreview={(url) => {
+											setVideoPreview(url);
+											setShowVideoModal(true);
+										}}
 									/>
-								</div>
-
-								<div className="space-y-2">
-									<label className="label text-sm mb-1" htmlFor="image">Acteurs à afficher</label>
-									{actorNames.length === 0 ? (
-										<div className="text-xs text-white/60 bg-base-200/60 border border-base-300 rounded-lg px-3 py-2">
-											Ajoutez des acteurs dans le champ dédié pour les afficher ici.
-										</div>
-									) : (
-										<div className="flex gap-2 items-center flex-wrap">
-											{actorNames.map((name, index) => (
-												<div key={name + index} className="flex flex-col items-center gap-1">
-													<UploadBox
-														id={`image-${index}`}
-														label={name}
-														className="w-20 h-20"
-													/>
-													<span className="text-xs text-white/60 max-w-[5rem] text-center">{name}</span>
-												</div>
-											))}
-										</div>
-									)}
-									<p className="text-xs text-white/60">Veillez à ce que la photo corresponde à la sélection du nom de l’acteur dans le formulaire.</p>
 								</div>
 
 									<div className="flex items-center gap-3 pt-2 justify-between">
@@ -726,10 +757,10 @@ export default function Page() {
 										</button>
 										<button
 											type="submit"
-											className="btn btn-primary rounded-full px-8"
-											disabled={prefillLoading || metaSaving}
-										>
-											{metaSaving ? "Sauvegarde..." : "Publier film"}
+										className="btn btn-primary rounded-full px-8"
+										disabled={prefillLoading || metaSaving}
+									>
+											{metaSaving ? "Traitement..." : "Ajouter les fichiers"}
 										</button>
 									</div>
 								</div>
@@ -739,15 +770,66 @@ export default function Page() {
 				</div>
 			</form>
 
+			{showVideoModal && videoPreview && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+					<div className="bg-neutral rounded-2xl border border-base-300 p-4 max-w-4xl w-full shadow-lg space-y-3 max-h-[90vh] flex flex-col">
+						<div className="flex items-center justify-between">
+							<h3 className="text-lg font-semibold text-white">Prévisualisation vidéo</h3>
+							<button
+								className="btn btn-ghost btn-sm text-white"
+								onClick={() => {
+									if (videoPreview) URL.revokeObjectURL(videoPreview);
+									setShowVideoModal(false);
+									setVideoPreview(null);
+								}}
+							>
+								Fermer
+							</button>
+						</div>
+						<div className="flex-1 min-h-0">
+							<video
+								controls
+								src={videoPreview}
+								className="w-full h-full rounded-lg border border-base-300 object-contain"
+							/>
+						</div>
+					</div>
+				</div>
+			)}
+
 			<ConfirmationDialog
 				open={dialogOpen}
-				title="Confirmer l'envoi du film"
-				message="Vérifiez les informations avant de les envoyer au back."
+				title={
+					pendingAction === "meta"
+						? "Enregistrer les métadonnées ?"
+						: pendingAction === "update"
+							? "Mettre à jour le film ?"
+							: "Envoyer les fichiers ?"
+				}
+				message={
+					pendingAction === "meta"
+						? "Les métadonnées seront enregistrées. Vous pourrez ensuite ajouter les fichiers."
+						: "Seuls les fichiers seront envoyés."
+				}
 				status={dialogStatus}
 				resultMessage={dialogResult}
-				confirmLabel={pendingAction === "update" ? "Mettre à jour" : "Envoyer"}
-				onCancel={closeDialog}
-				onConfirm={confirmSend}
+				confirmLabel={pendingAction === "meta" ? "Ajouter des fichiers" : "Envoyer les fichiers"}
+				onCancel={() => {
+					closeDialog();
+					if (pendingAction === "meta") {
+						resetForm();
+						setUiStep("meta");
+					}
+				}}
+				onConfirm={() => {
+					if (pendingAction === "meta") {
+						confirmSend(() => {
+							setUiStep("files");
+						});
+					} else {
+						confirmSend();
+					}
+				}}
 			>
 				{dialogStatus === "loading" && (
 					<div className="text-sm text-white/80 space-y-1">
@@ -769,27 +851,40 @@ export default function Page() {
 					</div>
 				)}
 				{pendingFilm && dialogStatus !== "loading" && (
-					<div className="bg-base-100/10 border border-base-300 rounded-xl p-3 text-sm text-white/80 space-y-2">
-						<div className="flex justify-between">
-							<span className="text-white/60">Titre</span>
-							<span>{pendingFilm.title}</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-white/60">Type</span>
-							<span>{pendingFilm.type || "—"}</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-white/60">Prix</span>
-							<span>{pendingFilm.price ?? "—"}</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-white/60">Sortie</span>
-							<span>{pendingFilm.releaseDate || "—"}</span>
-						</div>
-						<div className="flex justify-between">
-							<span className="text-white/60">Publication</span>
-							<span>{pendingFilm.publishDate || "—"}</span>
-						</div>
+					<div className="bg-base-100/10 border border-base-300 rounded-xl p-3 text-sm text-white/80 space-y-3">
+						{pendingAction === "meta" ? (
+							<>
+								<div className="flex justify-between">
+									<span className="text-white/60">Titre</span>
+									<span>{pendingFilm.title}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-white/60">Type</span>
+									<span>{pendingFilm.type || "—"}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-white/60">Format</span>
+									<span>{pendingFilm.format || "—"}</span>
+								</div>
+								<div className="flex justify-between">
+									<span className="text-white/60">Genre</span>
+									<span>{pendingFilm.genre || "—"}</span>
+								</div>
+							</>
+						) : (
+							<>
+								<p className="text-white/70">Fichiers à envoyer</p>
+								<ul className="list-disc list-inside space-y-1">
+									{pendingFilm.mainImage && <li>Image principale : {pendingFilm.mainImage.name}</li>}
+									{pendingFilm.secondaryImage && <li>Image secondaire : {pendingFilm.secondaryImage.name}</li>}
+									{pendingFilm.movieFile && <li>Vidéo film : {pendingFilm.movieFile.name}</li>}
+									{pendingFilm.trailerFile && <li>Bande annonce : {pendingFilm.trailerFile.name}</li>}
+									{!pendingFilm.mainImage && !pendingFilm.secondaryImage && !pendingFilm.movieFile && !pendingFilm.trailerFile && (
+										<li className="text-white/60">Aucun fichier sélectionné</li>
+									)}
+								</ul>
+							</>
+						)}
 					</div>
 				)}
 			</ConfirmationDialog>

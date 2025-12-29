@@ -7,9 +7,10 @@ import { withRetry } from "@/lib/api/retry";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { useSession } from "next-auth/react";
 import { DialogStatus } from "@/ui/components/confirmationDialog";
-import { type FilmMetadataPayload } from "@/types/api/films";
+import { type FilmMetadataPayload, type FilmUploadFileDescriptor } from "@/types/api/films";
 
 export type SuggestionOption = { label: string; value: string };
+export type FilmActor = { actorId?: string; name: string };
 export type FilmFormData = {
   title: string;
   description: string;
@@ -24,7 +25,7 @@ export type FilmFormData = {
   format: string;
   category: string;
   genre: string;
-  actors: string[];
+  actors: FilmActor[];
   director: string;
   duration: number | null;
   ageRating: string;
@@ -38,9 +39,9 @@ export type FilmFormData = {
   movieFile: File | null;
 };
 
-export type SubmitAction = "draft" | "publish" | "update";
+export type SubmitAction = "draft" | "publish" | "update" | "meta";
 
-type FileSlotType = "main_image" | "secondary_image" | "trailer" | "movie";
+type FileSlotType = "main" | "secondary" | "trailer" | "movie";
 type FileDescriptor = { key: FileSlotType; file: File };
 type PresignedSlot = { key: FileSlotType; uploadUrl: string; finalUrl: string };
 type MetadataPayload = FilmMetadataPayload;
@@ -63,6 +64,7 @@ export function useFilmForm() {
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FilmFormData>({
     defaultValues: {
@@ -92,6 +94,7 @@ export function useFilmForm() {
       trailerFile: null,
       movieFile: null,
     },
+    shouldUnregister: false,
   });
 
   const mainImage = watch("mainImage");
@@ -102,6 +105,7 @@ export function useFilmForm() {
   const [dialogResult, setDialogResult] = useState<string | null>(null);
   const [pendingFilm, setPendingFilm] = useState<FilmFormData | null>(null);
   const [pendingAction, setPendingAction] = useState<SubmitAction>("publish");
+  const [metaSaved, setMetaSaved] = useState(false);
   const [metaSaving, setMetaSaving] = useState(false);
   const [filmId, setFilmId] = useState<string | null>(null);
   const [prefillLoading, setPrefillLoading] = useState(false);
@@ -128,12 +132,14 @@ export function useFilmForm() {
 
   useEffect(() => {
     const mapStrings = (values?: string[]) => (values ?? []).filter(Boolean).map((v) => ({ label: v, value: v }));
-    const mapObjects = <T>(items: T[] | undefined, key: keyof T) =>
+    const mapObjects = <T>(items: T[] | undefined, key: keyof T, idKey?: keyof T) =>
       (items ?? [])
         .map((item) => {
           const raw = (item as Record<string, unknown>)?.[key as string];
-          const value = typeof raw === "string" ? raw : "";
-          return value ? { label: value, value } : null;
+          const idRaw = idKey ? (item as Record<string, unknown>)?.[idKey as string] : undefined;
+          const label = typeof raw === "string" ? raw : "";
+          const value = typeof idRaw === "string" && idRaw ? idRaw : label;
+          return label ? { label, value } : null;
         })
         .filter((opt): opt is SuggestionOption => Boolean(opt));
     const dedupe = (list: SuggestionOption[]) => {
@@ -155,7 +161,7 @@ export function useFilmForm() {
           categories: dedupe(mapObjects(res.categories, "category")),
           formats: dedupe(mapObjects(res.formats, "format")),
           genres: dedupe(mapObjects(res.genres, "name")),
-          actors: dedupe(mapObjects(res.actors, "name")),
+          actors: dedupe(mapObjects(res.actors, "name", "id")),
           countries: dedupe(mapStrings(res.countries)),
           productionHouses: dedupe(mapStrings(res.productionHouses)),
           languages: dedupe(mapStrings(res.languages ?? [])),
@@ -207,14 +213,21 @@ export function useFilmForm() {
           format: film.format ?? "",
           category: film.category ?? "",
           genre: (film as { gender?: string }).gender ?? film.genre ?? "",
-          actors: typeof film.actors === "string"
-            ? film.actors
-                .split(",")
-                .map((a) => a.trim())
-                .filter(Boolean)
-            : Array.isArray((film as { actors?: string[] }).actors)
-              ? ((film as { actors?: string[] }).actors ?? [])
-              : [],
+          actors:
+            typeof film.actors === "string"
+              ? film.actors
+                  .split(",")
+                  .map((a) => a.trim())
+                  .filter(Boolean)
+                  .map((name) => ({ name }))
+              : Array.isArray((film as { actors?: unknown[] }).actors)
+                ? (film as { actors?: Array<string | { name?: string; actorId?: string }> }).actors?.map((a) => {
+                    if (typeof a === "string") return { name: a };
+                    const name = (a as { name?: string }).name ?? "";
+                    const actorId = (a as { actorId?: string }).actorId;
+                    return name ? { name, actorId } : null;
+                  }).filter(Boolean) as FilmActor[]
+                : [],
           director: film.director ?? "",
           duration: film.duration ? Number(film.duration) : null,
           ageRating: (film as { ageRating?: string }).ageRating ?? "",
@@ -238,6 +251,23 @@ export function useFilmForm() {
   }, [filmId, setValue, accessToken]);
 
   const openConfirm = (data: FilmFormData, action: SubmitAction) => {
+    if (action === "meta") {
+      if (!data.type || !data.format || !data.genre) {
+        toast.error({
+          title: "Champs requis",
+          description: "Type, format et genre sont obligatoires avant l'envoi.",
+        });
+        return;
+      }
+    } else {
+      if (!filmId) {
+        toast.error({
+          title: "Métadonnées manquantes",
+          description: "Enregistrez d'abord les métadonnées avant d'ajouter les fichiers.",
+        });
+        return;
+      }
+    }
     setPendingFilm(data);
     setPendingAction(filmId ? "update" : action);
     setDialogOpen(true);
@@ -250,25 +280,48 @@ export function useFilmForm() {
     setDialogOpen(false);
     setDialogStatus("idle");
     setDialogResult(null);
+    setPendingAction("publish");
+    setPendingFilm(null);
+  };
+
+  const resetForm = () => {
+    reset();
+    setFilmId(null);
+    setMetaSaved(false);
+    setPendingFilm(null);
+    setPendingAction("publish");
+    setDialogOpen(false);
+    setDialogStatus("idle");
+    setDialogResult(null);
   };
 
   const buildMetadataPayload = (film: FilmFormData): MetadataPayload => {
-    const rentalPrice = (film.type || "").toLowerCase() === "abonnement" ? null : film.price;
-    const actors = (film.actors ?? []).filter(Boolean).map((name) => ({ name }));
+    const normalizeType = (raw?: string) => {
+      const low = (raw ?? "").trim().toLowerCase();
+      if (low === "subscription") return "abonnement";
+      if (low === "rent" || low === "rental") return "location";
+      if (low === "abonnement" || low === "location") return low;
+      return low;
+    };
+    const rentalPrice = normalizeType(film.type) === "abonnement" ? null : film.price;
+    const actors = (film.actors ?? []).filter(Boolean).map((actor) => ({
+      actorId: actor.actorId,
+      name: actor.name,
+    }));
 
     return {
       title: film.title,
       description: film.description,
       productionHouse: film.productionHouse,
       productionCountry: film.country,
-      type: film.type,
+      type: normalizeType(film.type),
       rentalPrice,
       releaseDate: film.releaseDate,
       plateformDate: film.publishDate,
-      format: film.format,
-      category: film.category,
+      format: film.format?.trim(),
+      category: film.category?.trim(),
       entertainmentMode: "MOVIE",
-      gender: film.genre,
+      gender: film.genre?.trim(),
       director: film.director,
       actors,
       isSafliixProd: film.isSafliixProd,
@@ -284,8 +337,8 @@ export function useFilmForm() {
 
   const collectFiles = (film: FilmFormData): FileDescriptor[] => {
     const slots: Array<[FileSlotType, File | null]> = [
-      ["main_image", film.mainImage],
-      ["secondary_image", film.secondaryImage],
+      ["main", film.mainImage],
+      ["secondary", film.secondaryImage],
       ["trailer", film.trailerFile],
       ["movie", film.movieFile],
     ];
@@ -304,7 +357,18 @@ export function useFilmForm() {
   };
 
   const requestUploadSlots = async (id: string, files: FileDescriptor[]): Promise<PresignedSlot[]> => {
-    const descriptors = files.map((f) => ({ key: f.key, name: f.file.name, type: f.file.type }));
+    const attachmentTypeBySlot: Record<FileSlotType, FilmUploadFileDescriptor["attachmentType"]> = {
+      main: "POSTER",
+      secondary: "THUMBNAIL",
+      trailer: "TRAILER",
+      movie: "MAIN",
+    };
+    const descriptors: FilmUploadFileDescriptor[] = files.map((f) => ({
+      key: f.key,
+      name: f.file.name,
+      type: f.file.type || "application/octet-stream",
+      attachmentType: attachmentTypeBySlot[f.key],
+    }));
     return withRetry(() => filmsApi.presignUploads(id, descriptors, accessToken));
   };
 
@@ -337,6 +401,7 @@ export function useFilmForm() {
       console.log("[films] sauvegarde meta seule", { metadata, filmId });
       const createdFilmId = await submitMetadata(metadata);
       setFilmId(createdFilmId);
+      setMetaSaved(true);
       toast.success({
         title: "Métadonnées sauvegardées",
         description: "Vous pouvez passer à l’étape des fichiers.",
@@ -353,30 +418,55 @@ export function useFilmForm() {
     }
   };
 
-  const confirmSend = async () => {
+  const confirmSend = async (onMetaSuccess?: () => void) => {
     if (!pendingFilm) return;
     setDialogStatus("loading");
     setDialogResult(null);
     setProgressDetail(null);
     setUploadErrorDetail(null);
+    const isMetaOnly = pendingAction === "meta";
+    if (isMetaOnly) setMetaSaving(true);
 
     try {
-      const metadata = buildMetadataPayload(pendingFilm);
       const files = collectFiles(pendingFilm);
       console.log("[films] ready to submit", {
         action: pendingAction,
         filmId,
-        metadata,
+        metaSaved,
         files: files.map((f) => ({ key: f.key, name: f.file.name, type: f.file.type, size: f.file.size })),
       });
 
-      setProgressStep("metadata");
-      const createdFilmId = await submitMetadata(metadata);
-      setFilmId(createdFilmId);
+      // Cas métadonnées seules (étape 1)
+      if (isMetaOnly) {
+        setProgressStep("metadata");
+        const metadata = buildMetadataPayload(pendingFilm);
+        const createdFilmId = await submitMetadata(metadata);
+        setFilmId(createdFilmId);
+        setMetaSaved(true);
+        setDialogStatus("success");
+        setDialogResult("Métadonnées enregistrées.");
+        setProgressStep("idle");
+        toast.success({
+          title: "Métadonnées",
+          description: "Film créé, vous pouvez passer aux fichiers.",
+        });
+        if (onMetaSuccess) onMetaSuccess();
+        closeDialog();
+        setPendingAction("publish");
+        return;
+      }
+
+      // Étape fichiers uniquement : on suppose les métadonnées déjà enregistrées
+      if (!filmId) {
+        const err = new Error("Aucun film créé. Enregistrez les métadonnées avant d'ajouter les fichiers.");
+        console.error("[films] missing filmId before presign", { filmId, pendingAction, files });
+        throw err;
+      }
+      const workingFilmId = filmId;
 
       if (files.length) {
         setProgressStep("presign");
-        const slots = await requestUploadSlots(createdFilmId, files);
+        const slots = await requestUploadSlots(workingFilmId, files);
 
         setProgressStep("upload");
         for (const slot of slots) {
@@ -392,30 +482,44 @@ export function useFilmForm() {
           }
         }
 
-      setProgressStep("finalize");
-      await finalizeUploads(createdFilmId, slots);
-    }
+        setProgressStep("finalize");
+        await finalizeUploads(workingFilmId, slots);
+      } else {
+        setDialogStatus("success");
+        setDialogResult("Aucun fichier à envoyer.");
+        setProgressStep("idle");
+        setProgressDetail(null);
+        toast.success({
+          title: "Fichiers",
+          description: "Aucun fichier à transmettre.",
+        });
+        closeDialog();
+        return;
+      }
 
-    setDialogStatus("success");
-    setDialogResult("Film envoyé avec succès.");
-    setProgressStep("idle");
-    setProgressDetail(null);
-    toast.success({
-      title: "Film envoyé",
-      description: "Les métadonnées et fichiers ont été transmis.",
-    });
-  } catch (error) {
-    setDialogStatus("error");
-    const friendly = formatApiError(error);
-    setDialogResult(friendly.message || "Échec de l'envoi du film.");
-    setProgressStep("idle");
-    setUploadErrorDetail(uploadErrorDetail || friendly.message);
-    toast.error({
-      title: "Échec d'envoi",
-      description: friendly.message,
-    });
-  }
-};
+      setDialogStatus("success");
+      setDialogResult("Fichiers envoyés avec succès.");
+      setProgressStep("idle");
+      setProgressDetail(null);
+      toast.success({
+        title: "Fichiers envoyés",
+        description: "Les fichiers ont été transmis.",
+      });
+      closeDialog();
+    } catch (error) {
+      setDialogStatus("error");
+      const friendly = formatApiError(error);
+      setDialogResult(friendly.message || "Échec de l'envoi du film.");
+      setProgressStep("idle");
+      setUploadErrorDetail(uploadErrorDetail || friendly.message);
+      toast.error({
+        title: "Échec d'envoi",
+        description: friendly.message,
+      });
+    } finally {
+      if (isMetaOnly) setMetaSaving(false);
+    }
+  };
 
   return {
     control,
@@ -436,6 +540,8 @@ export function useFilmForm() {
     filmId,
     setFilmId,
     pendingAction,
+    setPendingAction,
+    resetForm,
     prefillLoading,
     prefillError,
     progressStep,

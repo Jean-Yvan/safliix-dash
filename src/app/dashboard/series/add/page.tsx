@@ -14,6 +14,7 @@ import { useToast } from "@/ui/components/toast/ToastProvider";
 import { formatApiError } from "@/lib/api/errors";
 import { withRetry } from "@/lib/api/retry";
 import { type CountryEntry, getCountries } from "@/lib/countries";
+import { type EpisodeUploadDescriptor, type SeriesMetadataPayload } from "@/types/api/series";
 
 type SeriesFormData = {
   title: string;
@@ -44,6 +45,7 @@ export default function Page() {
     control,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<SeriesFormData>({
     defaultValues: {
@@ -75,15 +77,34 @@ export default function Page() {
   const [dialogStatus, setDialogStatus] = useState<DialogStatus>("idle");
   const [dialogResult, setDialogResult] = useState<string | null>(null);
   const [pendingData, setPendingData] = useState<SeriesFormData | null>(null);
+  const [seriesId, setSeriesId] = useState<string | null>(null);
   const [countries, setCountries] = useState<CountryEntry[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uiStep, setUiStep] = useState<"meta" | "files">("meta");
+  const [metaSaving, setMetaSaving] = useState(false);
   const toast = useToast();
   const accessToken = useAccessToken();
+  const actorsValue = watch("actors");
+  const posterFile = watch("posterFile");
 
   useEffect(() => {
     setCountries(getCountries("fr"));
   }, []);
 
+  useEffect(() => {
+    if (posterFile) {
+      const url = URL.createObjectURL(posterFile);
+      setPreviewUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setPreviewUrl(null);
+  }, [posterFile]);
+
   const openDialog = (action: "draft" | "publish", data: SeriesFormData) => {
+    if (!seriesId) {
+      toast.error({ title: "Fichiers", description: "Enregistrez d'abord les métadonnées." });
+      return;
+    }
     setDialogAction(action);
     setDialogResult(null);
     setDialogStatus("idle");
@@ -99,39 +120,38 @@ export default function Page() {
     setDialogStatus("idle");
   };
 
+  const buildMetadata = (data: SeriesFormData): SeriesMetadataPayload => ({
+    title: data.title,
+    description: data.description,
+    productionHouse: data.productionHouse,
+    productionCountry: data.country,
+    releaseDate: data.releaseDate,
+    plateformDate: data.publishDate,
+    seasonCount: data.seasonCount,
+    category: data.category,
+    entertainmentMode: "SERIE",
+    gender: data.genre,
+    director: data.director,
+    actors: (data.actors ?? []).filter(Boolean).map((name) => ({ name })),
+    isSafliixProd: data.isSafliixProd,
+    haveSubtitles: data.haveSubtitles,
+    subtitleLanguages: data.subtitleLanguages,
+    mainLanguage: data.language,
+    ageRating: data.ageRating || undefined,
+    rightHolderId: data.rightHolderId || undefined,
+    blockedCountries: data.blockCountries ?? [],
+  });
+
   const confirmDialog = async () => {
     if (!pendingData) return;
+    if (!seriesId) {
+      toast.error({ title: "Fichiers", description: "Enregistrez d'abord les métadonnées." });
+      return;
+    }
     setDialogStatus("loading");
     setDialogResult(null);
 
     try {
-      const metadata = {
-        title: pendingData.title,
-        description: pendingData.description,
-        productionHouse: pendingData.productionHouse,
-        productionCountry: pendingData.country,
-        releaseDate: pendingData.releaseDate,
-        plateformDate: pendingData.publishDate,
-        seasonCount: pendingData.seasonCount,
-        category: pendingData.category,
-        entertainmentMode: "SERIE" as const,
-        gender: pendingData.genre,
-        director: pendingData.director,
-        actors: (pendingData.actors ?? []).filter(Boolean).map((name) => ({ name })),
-        isSafliixProd: pendingData.isSafliixProd,
-        haveSubtitles: pendingData.haveSubtitles,
-        subtitleLanguages: pendingData.subtitleLanguages,
-        mainLanguage: pendingData.language,
-        ageRating: pendingData.ageRating || undefined,
-        rightHolderId: pendingData.rightHolderId || undefined,
-        blockedCountries: pendingData.blockCountries ?? [],
-      };
-
-      const { id: seriesId } = await withRetry(
-        () => seriesApi.create(metadata, accessToken),
-        { retries: 1 },
-      );
-
       const files = [
         pendingData.posterFile ? { key: "poster" as const, file: pendingData.posterFile } : null,
         pendingData.heroFile ? { key: "hero" as const, file: pendingData.heroFile } : null,
@@ -141,7 +161,19 @@ export default function Page() {
       if (files.length) {
         const slots = await seriesApi.presignUploads(
           seriesId,
-          files.map((f) => ({ key: f.key, name: f.file.name, type: f.file.type })),
+          files.map((f) => {
+            const attachmentMap: Record<string, EpisodeUploadDescriptor["attachmentType"]> = {
+              poster: "POSTER",
+              hero: "BANNER",
+              trailer: "TRAILER",
+            };
+            return {
+              key: f.key,
+              name: f.file.name,
+              type: f.file.type || "application/octet-stream",
+              attachmentType: attachmentMap[f.key] ?? "BONUS",
+            };
+          }),
           accessToken,
         );
         for (const slot of slots) {
@@ -154,171 +186,117 @@ export default function Page() {
       }
 
       setDialogStatus("success");
-      const msg = dialogAction === "publish" ? "Série publiée avec succès." : "Brouillon enregistré.";
+      const msg = dialogAction === "publish" ? "Fichiers envoyés." : "Fichiers enregistrés.";
       setDialogResult(msg);
       toast.success({ title: "Série", description: msg });
     } catch (error) {
       const friendly = formatApiError(error);
       setDialogStatus("error");
-      setDialogResult(friendly.message || "Échec de l'envoi de la série.");
+      setDialogResult(friendly.message || "Échec de l'envoi des fichiers.");
       toast.error({ title: "Série", description: friendly.message });
     }
   };
 
   return (
     <div className="space-y-4">
-      <Header title="Product Editor" className="rounded-2xl border border-base-300 shadow-sm px-5">
-        <div className="flex items-center gap-3 text-sm text-white/80">
-          <div className="bg-base-200 px-3 py-2 rounded-lg border border-base-300">Data Refreshed</div>
-          <div className="bg-base-200 px-3 py-2 rounded-lg border border-base-300">September 28, 2023 12:35 PM</div>
+      <Header
+        title="Nouvelle série"
+        className="rounded-2xl border border-base-300 shadow-sm px-5"
+      >
+        <div className="text-sm text-white/80 px-3 py-1 rounded-lg bg-base-200/60 border border-base-300">
+          Étape {uiStep === "meta" ? "1/2 • Métadonnées" : "2/2 • Fichiers"}
         </div>
       </Header>
 
-      <div className="flex items-center justify-between text-sm text-white/80 px-1">
-        <div className="flex items-center gap-2">
-          <span>Products:</span>
-          <button className="btn btn-link px-1 text-white">All (1.234)</button>
-          <span className="w-[1px] h-4 bg-base-300"/>
-          <button className="btn btn-link px-1 text-white">Drafts (120)</button>
-          <span className="w-[1px] h-4 bg-base-300"/>
-          <button className="btn btn-link px-1 text-white">Trash (30)</button>
-        </div>
-        <span>View Products: 12/28</span>
-      </div>
-
       <form
-        onSubmit={handleSubmit((data) => openDialog("publish", data))}
-        className="grid grid-cols-12 gap-6 bg-neutral px-5 py-6 rounded-2xl shadow border border-base-300"
+        onSubmit={handleSubmit(async (data) => {
+          if (uiStep === "meta") {
+            setMetaSaving(true);
+            try {
+              const metadata = buildMetadata(data);
+              const { id } = await withRetry(() => seriesApi.create(metadata, accessToken), { retries: 1 });
+              setSeriesId(id);
+              toast.success({ title: "Métadonnées", description: "Série enregistrée. Ajoutez les fichiers si besoin." });
+              setPendingData(data);
+              setUiStep("files");
+            } catch (error) {
+              const friendly = formatApiError(error);
+              toast.error({ title: "Métadonnées", description: friendly.message });
+            } finally {
+              setMetaSaving(false);
+            }
+            return;
+          }
+          if (!seriesId) {
+            toast.error({ title: "Fichiers", description: "Enregistrez d'abord les métadonnées." });
+            return;
+          }
+          openDialog("publish", data);
+        })}
+        className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-neutral px-5 py-6 rounded-2xl shadow border border-base-300"
       >
-        <div className="col-span-5 space-y-6">
-          <div className="grid grid-cols-6 grid-rows-2 gap-4">
-            <UploadBox
-              id="main"
-              label="Image principale"
-              className="row-span-2 col-span-3 min-h-[220px]"
-              onFileSelect={(file) => setValue("posterFile", file)}
-            />
-            <UploadBox
-              id="sec"
-              label="Image secondaire"
-              className="col-span-3 min-h-[100px]"
-              onFileSelect={(file) => setValue("heroFile", file)}
-            />
-            <UploadBox
-              id="qua"
-              label="Vidéo"
-              className="col-span-3 min-h-[100px]"
-              onFileSelect={(file) => setValue("trailerFile", file)}
-            />
-            <UploadBox
-              id="tert"
-              label="Bande annonce"
-              className="col-span-3 row-span-1 min-h-[100px]"
-              onFileSelect={(file) => setValue("trailerFile", file)}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="label text-sm mb-1" htmlFor="image">Acteurs à afficher</label>
-            {pendingData?.actors?.length ? (
-              <div className="flex gap-2 items-center flex-wrap">
-                {pendingData.actors.map((name, index) => (
-                  <UploadBox key={name + index} id={`image-${index}`} label={name} className="w-20 h-20" />
-                ))}
-              </div>
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-base-200/40 border border-base-300 rounded-xl p-4 h-full flex items-center justify-center overflow-hidden">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Aperçu" className="rounded-lg max-h-full object-cover" />
             ) : (
-              <div className="text-xs text-white/60 bg-base-200/60 border border-base-300 rounded-lg px-3 py-2">
-                Ajoutez des acteurs pour afficher leurs vignettes ici.
-              </div>
+              <span className="text-white/70 text-sm text-center">Ajoutez l’image principale pour l’aperçu.</span>
             )}
-            <p className="text-xs text-white/60">Veillez à ce que la photo corresponde à la sélection du nom de l’acteur.</p>
           </div>
-          <div className="space-y-2">
-            <label className="label text-sm mb-1" htmlFor="image">Description du film (synopsis)</label>
-            <Controller
-              name="description"
-              control={control}
-              rules={{ required: "La description est obligatoire" }}
-              render={({ field }) => (
-                <MultipleInputField
-                  {...field}
-                  value={field.value ?? ""}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  name={"description"}
-                  className="bg-base-200 border-base-300"
+          {uiStep === "files" && (
+            <>
+              <div className="grid grid-cols-6 grid-rows-2 gap-4">
+                <UploadBox
+                  id="main"
+                  label="Image principale"
+                  className="row-span-2 col-span-3 min-h-[220px]"
+                  onFileSelect={(file) => setValue("posterFile", file)}
                 />
-              )}
-            />
-            {errors.description && <p className="text-red-600 text-sm">{errors.description.message}</p>}
-          </div>
-          <div className="flex items-center gap-6">
-            <Controller
-              name="isSafliixProd"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-sm"
-                    checked={field.value}
-                    onChange={(e) => field.onChange(e.target.checked)}
-                  /> Production SaFlix
-                </label>
-              )}
-            />
-            <Controller
-              name="haveSubtitles"
-              control={control}
-              render={({ field }) => (
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-sm"
-                    checked={field.value}
-                    onChange={(e) => field.onChange(e.target.checked)}
-                  /> Sous-titre
-                </label>
-              )}
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-3 items-end">
-            <div>
-              <label className="label text-sm mb-1">Langue</label>
-              <Controller
-                name="language"
-                control={control}
-                rules={{ required: 'La langue est obligatoire' }}
-                render={({ field }) => (
-                  <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />
+                <UploadBox
+                  id="sec"
+                  label="Image secondaire"
+                  className="col-span-3 min-h-[100px]"
+                  onFileSelect={(file) => setValue("heroFile", file)}
+                />
+                <UploadBox
+                  id="qua"
+                  label="Vidéo"
+                  className="col-span-3 min-h-[100px]"
+                  onFileSelect={(file) => setValue("trailerFile", file)}
+                />
+                <UploadBox
+                  id="tert"
+                  label="Bande annonce"
+                  className="col-span-3 row-span-1 min-h-[100px]"
+                  onFileSelect={(file) => setValue("trailerFile", file)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="label text-sm mb-1" htmlFor="image">Acteurs à afficher</label>
+                {(actorsValue ?? []).length ? (
+                  <div className="flex gap-2 items-center flex-wrap">
+                    {(actorsValue ?? []).map((name: string, index: number) => (
+                      <UploadBox key={name + index} id={`image-${index}`} label={name} className="w-20 h-20" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-white/60 bg-base-200/60 border border-base-300 rounded-lg px-3 py-2">
+                    Ajoutez des acteurs pour afficher leurs vignettes ici.
+                  </div>
                 )}
-              />
-              {errors.language && <p className="text-red-600 text-sm">{errors.language.message}</p>}
-            </div>
-            <div>
-              <label className="label text-sm mb-1">Classification (age)</label>
-              <Controller
-                name="ageRating"
-                control={control}
-                render={({ field }) => (
-                  <InputField
-                    {...field}
-                    value={field.value ?? ""}
-                    placeholder="Ex: R, PG-13"
-                    className="input bg-base-200 border-base-300"
-                  />
-                )}
-              />
-            </div>
-            <UploadBox id="trailer" label="Sous titre" className="w-full min-h-[80px]" />
-          </div>
+                <p className="text-xs text-white/60">Veillez à ce que la photo corresponde au nom sélectionné.</p>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="col-span-7 flex flex-col gap-3">
+        <div className="lg:col-span-8 flex flex-col gap-3">
           <div>
-            <label className="label text-sm mb-1">Nom du film</label>
+            <label className="label text-sm mb-1">Nom de la série</label>
             <Controller
               name="title"
               control={control}
-              rules={{ required: 'Titre du film', minLength: { value: 1, message: 'Au moins 1 caractère' } }}
+              rules={{ required: "Titre de la série", minLength: { value: 1, message: "Au moins 1 caractère" } }}
               render={({ field }) => <InputField {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
             />
             {errors.title && <p className="text-red-600 text-sm">{errors.title.message}</p>}
@@ -329,7 +307,7 @@ export default function Page() {
               <Controller
                 name="productionHouse"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.productionHouse && <p className="text-red-600 text-sm">{errors.productionHouse.message}</p>}
@@ -339,7 +317,7 @@ export default function Page() {
               <Controller
                 name="country"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.country && <p className="text-red-600 text-sm">{errors.country.message}</p>}
@@ -351,7 +329,7 @@ export default function Page() {
               <Controller
                 name="category"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.category && <p className="text-red-600 text-sm">{errors.category.message}</p>}
@@ -361,7 +339,7 @@ export default function Page() {
               <Controller
                 name="genre"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.genre && <p className="text-red-600 text-sm">{errors.genre.message}</p>}
@@ -373,7 +351,7 @@ export default function Page() {
               <Controller
                 name="releaseDate"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => <InputField type="date" {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.releaseDate && <p className="text-red-600 text-sm">{errors.releaseDate.message}</p>}
@@ -383,7 +361,7 @@ export default function Page() {
               <Controller
                 name="publishDate"
                 control={control}
-                rules={{ required: 'La date de publication sur SaFliix est obligatoire' }}
+                rules={{ required: "La date de publication sur SaFliix est obligatoire" }}
                 render={({ field }) => <InputField type="date" {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.publishDate && <p className="text-red-600 text-sm">{errors.publishDate.message}</p>}
@@ -395,7 +373,7 @@ export default function Page() {
               <Controller
                 name="seasonCount"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => (
                   <InputField
                     type="number"
@@ -413,7 +391,7 @@ export default function Page() {
               <Controller
                 name="director"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => <InputField {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />}
               />
               {errors.director && <p className="text-red-600 text-sm">{errors.director.message}</p>}
@@ -425,7 +403,7 @@ export default function Page() {
               <Controller
                 name="actors"
                 control={control}
-                rules={{ required: 'Obligatoire' }}
+                rules={{ required: "Obligatoire" }}
                 render={({ field }) => (
                   <ActorsSelector
                     value={field.value ?? []}
@@ -490,38 +468,151 @@ export default function Page() {
               />
             </div>
           </div>
-          <div className="w-full flex items-center gap-4 pt-2">
-            <button
-              type="button"
-              className="btn bg-white text-black rounded-full px-6"
-              onClick={() => handleSubmit((data) => openDialog("draft", data))()}
-            >
-              Enregistrer en brouillon
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary rounded-full px-8"
-            >
-              Publier série
-            </button>		
+          <div className="space-y-2">
+            <label className="label text-sm mb-1" htmlFor="image">Description de la série (synopsis)</label>
+            <Controller
+              name="description"
+              control={control}
+              rules={{ required: "La description est obligatoire" }}
+              render={({ field }) => (
+                <MultipleInputField
+                  {...field}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  name={"description"}
+                  className="bg-base-200 border-base-300"
+                />
+              )}
+            />
+            {errors.description && <p className="text-red-600 text-sm">{errors.description.message}</p>}
+          </div>
+          <div className="flex items-center gap-6">
+            <Controller
+              name="isSafliixProd"
+              control={control}
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  /> Production SaFlix
+                </label>
+              )}
+            />
+            <Controller
+              name="haveSubtitles"
+              control={control}
+              render={({ field }) => (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  /> Sous-titre
+                </label>
+              )}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3 items-end">
+            <div>
+              <label className="label text-sm mb-1">Langue</label>
+              <Controller
+                name="language"
+                control={control}
+                rules={{ required: "La langue est obligatoire" }}
+                render={({ field }) => (
+                  <SuggestionsInput optionList={[]} {...field} value={field.value ?? ""} className="input bg-base-200 border-base-300" />
+                )}
+              />
+              {errors.language && <p className="text-red-600 text-sm">{errors.language.message}</p>}
+            </div>
+            <div>
+              <label className="label text-sm mb-1">Classification (age)</label>
+              <Controller
+                name="ageRating"
+                control={control}
+                render={({ field }) => (
+                  <InputField
+                    {...field}
+                    value={field.value ?? ""}
+                    placeholder="Ex: R, PG-13"
+                    className="input bg-base-200 border-base-300"
+                  />
+                )}
+              />
+            </div>
+            <UploadBox id="trailer" label="Sous titre" className="w-full min-h-[80px]" />
+          </div>
+
+          <div className="w-full flex items-center justify-between gap-4 pt-2">
+            {uiStep === "files" ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost text-white"
+                  onClick={() => setUiStep("meta")}
+                  disabled={metaSaving}
+                >
+                  Retour métadonnées
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    className="btn bg-white text-black rounded-full px-6"
+                    onClick={() => handleSubmit((data) => openDialog("draft", data))()}
+                    disabled={metaSaving}
+                  >
+                    Enregistrer en brouillon
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary rounded-full px-8"
+                    disabled={metaSaving}
+                  >
+                    Publier série
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-end w-full">
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={metaSaving}
+                >
+                  {metaSaving ? "Sauvegarde..." : "Continuer vers les fichiers"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </form>
 
       <ConfirmationDialog
         open={dialogOpen}
-        title={dialogAction === "publish" ? "Publier la série ?" : "Enregistrer en brouillon ?"}
-        message="Les métadonnées et fichiers seront envoyés au back."
+        title={dialogAction === "publish" ? "Envoyer les fichiers ?" : "Enregistrer les fichiers ?"}
+        message="Seuls les fichiers seront envoyés."
         status={dialogStatus}
         resultMessage={dialogResult ?? undefined}
-        confirmLabel={dialogAction === "publish" ? "Publier" : "Enregistrer"}
+        confirmLabel={dialogAction === "publish" ? "Envoyer les fichiers" : "Enregistrer"}
         onConfirm={confirmDialog}
         onCancel={closeDialog}
       >
         {pendingData && (
-          <div className="text-white/70 text-sm space-y-1">
-            <p>Titre : {pendingData.title}</p>
-            <p>Langue : {pendingData.language}</p>
+          <div className="text-white/70 text-sm space-y-2">
+            <p>ID série : {seriesId ?? "Non créé"}</p>
+            <p>Fichiers à envoyer :</p>
+            <ul className="list-disc list-inside space-y-1">
+              {pendingData.posterFile && <li>Image principale : {pendingData.posterFile.name}</li>}
+              {pendingData.heroFile && <li>Image secondaire : {pendingData.heroFile.name}</li>}
+              {pendingData.trailerFile && <li>Bande annonce : {pendingData.trailerFile.name}</li>}
+              {!pendingData.posterFile && !pendingData.heroFile && !pendingData.trailerFile && (
+                <li className="text-white/60">Aucun fichier sélectionné</li>
+              )}
+            </ul>
           </div>
         )}
       </ConfirmationDialog>

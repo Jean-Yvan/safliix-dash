@@ -11,6 +11,32 @@ import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { formatApiError } from "@/lib/api/errors";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 
+type SeriesListItemWithRightsholder = {
+  id: string;
+  title: string;
+  status: string;
+  director?: string;
+  dp?: string;
+  number?: number | string;
+  category?: string;
+  poster?: string;
+  hero?: string;
+  stats?: Record<string, unknown>;
+  stars?: number;
+  geo?: { label?: string; name?: string; value?: number; max?: number; color?: string }[];
+  donut?: { label?: string; value: number; color?: string };
+  rightHolderId?: string;
+  rightHolderName?: string;
+  rightsholderName?: string;
+  rightHolder?: string;
+};
+
+type RightsholderGroup<T> = {
+  rightsholderId: string;
+  rightsholderName: string;
+  items: T[];
+};
+
 export default function Page() {
 	const mode: "location" | "abonnement" = "abonnement";
 	const filters = useMemo(
@@ -25,10 +51,26 @@ export default function Page() {
 	);
 
 	const accessToken = useAccessToken();
-	const [series, setSeries] = useState<any[]>([]);
+	const [seriesByRightsholder, setSeriesByRightsholder] = useState<RightsholderGroup<SeriesListItemWithRightsholder>[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const toast = useToast();
+
+	const normalizeRightsholderName = (item: SeriesListItemWithRightsholder) =>
+		item.rightHolderName || item.rightsholderName || item.rightHolder || "Ayant droit inconnu";
+
+	const groupByRightsholder = (items: SeriesListItemWithRightsholder[]) => {
+		const map = new Map<string, RightsholderGroup<SeriesListItemWithRightsholder>>();
+		items.forEach((item) => {
+			const name = normalizeRightsholderName(item);
+			const id = item.rightHolderId || name || "unknown";
+			if (!map.has(id)) {
+				map.set(id, { rightsholderId: String(id), rightsholderName: name, items: [] });
+			}
+			map.get(id)!.items.push(item);
+		});
+		return Array.from(map.values());
+	};
 
 	useEffect(() => {
 		let cancelled = false;
@@ -39,7 +81,21 @@ export default function Page() {
 			try {
 				const res = await seriesApi.list({ page: 1, pageSize: 10 }, accessToken);
 				if (cancelled) return;
-				setSeries(res.items);
+				const grouped =
+					(Array.isArray((res as any)?.rightsholders) && (res as any).rightsholders) ||
+					(Array.isArray((res as any)?.groups) && (res as any).groups);
+
+				if (grouped) {
+					setSeriesByRightsholder(
+						(grouped as any[]).map((g) => ({
+							rightsholderId: g.rightsholderId || g.rightHolderId || g.id || g.name || "unknown",
+							rightsholderName: g.rightsholderName || g.rightHolderName || g.name || "Ayant droit inconnu",
+							items: g.items || [],
+						}))
+					);
+				} else {
+					setSeriesByRightsholder(groupByRightsholder((res?.items as SeriesListItemWithRightsholder[]) ?? []));
+				}
 			} catch (err) {
 				if (cancelled || controller.signal.aborted) return;
 				const friendly = formatApiError(err);
@@ -89,16 +145,26 @@ export default function Page() {
         {loading && <div className="alert alert-info text-sm">Chargement des séries...</div>}
         {error && <div className="alert alert-error text-sm">{error}</div>}
 
-        <div className="space-y-4">
-          {series.map((serie) => (
-            <VideoCard
-              key={serie.id}
-              film={serie}
-              mode={mode}
-              detailHref={`/dashboard/series/detail/${serie.id}`}
-            />
+        <div className="space-y-6">
+          {seriesByRightsholder.map((group) => (
+            <div key={group.rightsholderId} className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="badge badge-primary badge-outline">{group.rightsholderName}</div>
+                <span className="text-sm text-white/60">({group.items.length} série{group.items.length > 1 ? "s" : ""})</span>
+              </div>
+              <div className="space-y-4">
+                {group.items.map((serie) => (
+                  <VideoCard
+                    key={serie.id}
+                    film={serie as any}
+                    mode={mode}
+                    detailHref={`/dashboard/series/detail/${serie.id}`}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
-          {!loading && !error && series.length === 0 && (
+          {!loading && !error && seriesByRightsholder.length === 0 && (
             <div className="text-sm text-white/70">Aucune série à afficher.</div>
           )}
         </div>

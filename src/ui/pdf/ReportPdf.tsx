@@ -1,84 +1,119 @@
-import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
-type ReportRow = {
-  id: string;
-  name: string;
-  status?: string;
-  updatedAt?: string;
-  owner?: string;
+type RentalEntry = {
+  order: string;
+  title: string;
+  category: string;
+  format: string;
+  rentals: number | string;
 };
 
 type Props = {
-  title: string;
-  generatedAt: string;
-  generatedBy?: string;
-  items: ReportRow[];
-  logoUrl?: string;
+  rightsholder: string;
+  periodStart: string;
+  periodEnd: string;
+  entries: RentalEntry[];
 };
 
-Font.register({
-  family: "Inter",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7qqzv.woff2" },
-    { src: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7qqzv.woff2", fontWeight: 600 },
-  ],
-});
-
 const styles = StyleSheet.create({
-  page: { padding: 32, fontFamily: "Inter", backgroundColor: "#0f172a", color: "#e2e8f0" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  titleBlock: { flexDirection: "column", gap: 4 },
-  title: { fontSize: 20, fontWeight: 600 },
-  meta: { fontSize: 10, color: "#cbd5e1" },
-  chip: { fontSize: 10, color: "#0ea5e9", border: "1 solid #0ea5e9", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  table: { marginTop: 12, borderRadius: 8, overflow: "hidden" },
-  row: { flexDirection: "row", paddingVertical: 8, paddingHorizontal: 10, borderBottom: "1 solid #1e293b" },
-  head: { backgroundColor: "#1e293b", fontSize: 10, fontWeight: 600 },
-  cellId: { width: "18%", fontSize: 10 },
-  cellName: { width: "38%", fontSize: 10 },
-  cellStatus: { width: "18%", fontSize: 10 },
-  cellDate: { width: "26%", fontSize: 10, textAlign: "right" },
-  footer: { marginTop: 16, fontSize: 10, color: "#94a3b8" },
-  logo: { width: 80, height: 24, objectFit: "contain" },
+  page: {
+    paddingTop: 28,
+    paddingHorizontal: 32,
+    paddingBottom: 24,
+    backgroundColor: "#ffffff",
+    fontSize: 10,
+    color: "#000000",
+  },
+  banner: {
+    backgroundColor: "#8BC34A",
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  bannerText: { fontSize: 16, fontWeight: 700 },
+  infoRow: {
+    marginTop: 10,
+    border: "0.8 solid #9e9e9e",
+    flexDirection: "row",
+  },
+  infoCell: {
+    flex: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRight: "0.8 solid #9e9e9e",
+    fontSize: 10,
+  },
+  infoCellLabel: { fontStyle: "italic" },
+  infoCellLast: { borderRight: "0 solid transparent" },
+  table: {
+    marginTop: 12,
+    border: "0.8 solid #9e9e9e",
+    borderTopWidth: 0,
+  },
+  headerRow: {
+    flexDirection: "row",
+    backgroundColor: "#f7f7f7",
+    borderBottom: "0.8 solid #9e9e9e",
+  },
+  row: {
+    flexDirection: "row",
+    borderBottom: "0.8 solid #9e9e9e",
+    minHeight: 22,
+    alignItems: "center",
+  },
+  colOrder: { width: "12%", paddingHorizontal: 6 },
+  colTitle: { width: "32%", paddingHorizontal: 6 },
+  colCategory: { width: "20%", paddingHorizontal: 6 },
+  colFormat: { width: "18%", paddingHorizontal: 6 },
+  colRentals: { width: "18%", paddingHorizontal: 6, textAlign: "center" },
+  headerText: { fontSize: 10, fontWeight: 700 },
+  rowText: { fontSize: 10 },
+  footerLine: { marginTop: 8, fontSize: 9, textAlign: "right", fontStyle: "italic" },
 });
 
-export function ReportPdf({ title, generatedAt, generatedBy = "SaFLIIX Dashboard", items, logoUrl }: Props) {
+export function ReportPdf({ rightsholder, periodStart, periodEnd, entries }: Props) {
+  const rows = [...entries];
+  while (rows.length < 10) {
+    rows.push({ order: "", title: "", category: "", format: "", rentals: "" });
+  }
+
   return (
     <Document>
-      <Page size="A4" style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>{title}</Text>
-            <Text style={styles.meta}>
-              Généré le {generatedAt} · {generatedBy}
-            </Text>
-          </View>
-          {logoUrl ? <Image src={logoUrl} style={styles.logo} /> : <Text style={styles.chip}>Rapport PDF</Text>}
+      <Page size="A4" orientation="landscape" style={styles.page}>
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>RAPPORT FINANCIER DE LOCATION DE FILMS</Text>
         </View>
 
-        <View style={[styles.row, styles.head]}>
-          <Text style={styles.cellId}>ID</Text>
-          <Text style={styles.cellName}>Nom</Text>
-          <Text style={styles.cellStatus}>Statut</Text>
-          <Text style={styles.cellDate}>Mise à jour</Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoCell}>
+            <Text style={styles.infoCellLabel}>NOM DE L'AYANT DROIT :</Text> {rightsholder}
+          </Text>
+          <Text style={styles.infoCell}></Text>
+          <Text style={styles.infoCell}></Text>
+          <Text style={[styles.infoCell, { textAlign: "right" }, styles.infoCellLast]}>
+            <Text style={styles.infoCellLabel}>Période</Text> {periodStart}
+          </Text>
         </View>
+
         <View style={styles.table}>
-          {items.map((item) => (
-            <View key={item.id} style={styles.row}>
-              <Text style={styles.cellId}>{item.id}</Text>
-              <Text style={styles.cellName}>{item.name}</Text>
-              <Text style={styles.cellStatus}>{item.status || "N/A"}</Text>
-              <Text style={styles.cellDate}>{item.updatedAt || "-"}</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.colOrder, styles.headerText]}>N° D'ORDRE</Text>
+            <Text style={[styles.colTitle, styles.headerText]}>TITRE DU FILMS</Text>
+            <Text style={[styles.colCategory, styles.headerText]}>CATEGORIE</Text>
+            <Text style={[styles.colFormat, styles.headerText]}>FORMAT</Text>
+            <Text style={[styles.colRentals, styles.headerText]}>NOMBRE DE LOCATIONS</Text>
+          </View>
+          {rows.map((row, idx) => (
+            <View key={idx} style={[styles.row, idx === rows.length - 1 ? { borderBottomWidth: 0 } : null]}>
+              <Text style={styles.colOrder}>{row.order}</Text>
+              <Text style={styles.colTitle}>{row.title}</Text>
+              <Text style={styles.colCategory}>{row.category}</Text>
+              <Text style={styles.colFormat}>{row.format}</Text>
+              <Text style={styles.colRentals}>{row.rentals}</Text>
             </View>
           ))}
-          {items.length === 0 && (
-            <View style={styles.row}>
-              <Text style={styles.cellName}>Aucune donnée sélectionnée</Text>
-            </View>
-          )}
         </View>
 
-        <Text style={styles.footer}>Données issues de la sélection de rapports · {items.length} entrées</Text>
+        <Text style={styles.footerLine}>au {periodEnd}</Text>
       </Page>
     </Document>
   );
