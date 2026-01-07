@@ -1,2 +1,2 @@
-pour récupérer la liste des films, il faut ajouter le type (abonnement ou location)
-il faut permettre que l'on récupère la liste des films suivant les ayant droits
+Les filtres date sur la page films sont actuellement appliqués uniquement côté client (aucune requête réseau). Il faut les faire remonter au backend (paramètres from/to ?) pour rafraîchir la liste en fonction de l’intervalle choisi.
+Page ayants droit : les compteurs films/séries affichent 0 car l’API ne retourne pas ces valeurs (ou retourne 0). À exposer côté backend ou recalculer côté front via les contenus liés.

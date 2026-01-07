@@ -14,7 +14,8 @@ export const plansApi = {
   list: (params: PlanListParams, accessToken?: string) =>
     apiRequest<PlanListResponse>("/plans", { params, accessToken }),
 
-  detail: (id: string, accessToken?: string) => apiRequest<PlanDetail>(`/plans/${id}`, { accessToken }),
+  detail: (id: string, accessToken?: string, signal?: AbortSignal) =>
+    apiRequest<PlanDetail>(`/plans/${id}`, { accessToken, signal }),
 
   create: (payload: PlanPayload, accessToken?: string) =>
     apiRequest<{ id: string }>("/plans", { method: "POST", body: payload, accessToken }),

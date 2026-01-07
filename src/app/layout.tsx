@@ -18,7 +18,7 @@ export default async function RootLayout({
   const session = await getServerSession(authConfig);
 
   return (
-    <html lang="en" data-theme="mytheme">
+    <html lang="fr" data-theme="mytheme">
       <body
         className={`antialiased`}
       > 

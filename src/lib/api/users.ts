@@ -9,5 +9,5 @@ export const usersApi = {
     apiRequest<UserProfile>(`/users/${id}`, { accessToken }),
 
   update: (id: string, payload: UserUpdatePayload, accessToken?: string) =>
-    apiRequest<UserProfile>(`/users/${id}`, { method: "PATCH", body: payload, accessToken }),
+    apiRequest<UserProfile>(`/users/${id}`, { method: "PATCH", body: payload, accessToken })
 };

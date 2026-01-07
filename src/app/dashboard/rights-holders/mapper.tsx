@@ -16,9 +16,9 @@ export const rightsHolderColumns: ColumnConfig<ImageRightsHolder>[] = [
   header: "AYANT DROIT",
   render: (holder) => (
       <Link href={`/dashboard/rights-holders/${holder.id}`} className="flex items-center gap-3 hover:text-primary">
-        <div className="avatar">
-          <div className="mask mask-squircle h-12 w-12">
-            <img src={holder.avatar || placeholderAvatar} alt={holder.firstName + " " + holder.lastName} />
+        <div className="avatar placeholder">
+          <div className="mask mask-squircle h-12 w-12 bg-primary/20 text-primary font-bold flex items-center justify-center uppercase text-xl text-center">
+            {(holder.firstName || holder.lastName || "?").charAt(0)}
           </div>
         </div>
         <div>
@@ -32,9 +32,7 @@ export const rightsHolderColumns: ColumnConfig<ImageRightsHolder>[] = [
     key: "sharePercentage",
     header: "PARTAGE",
     render: (holder) => (
-      <span className="badge badge-outline border-primary/50 text-primary">
-        {holder.sharePercentage}% revenus
-      </span>
+      <span className="text-primary font-semibold">{holder.sharePercentage}% revenus</span>
     ),
   },
   { key: "role", header: "RÔLE" },

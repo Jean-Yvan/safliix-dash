@@ -69,6 +69,9 @@ export default function Page() {
           <Link href="/dashboard/subscriptions/new" className="btn btn-primary btn-sm rounded-full">
             Créer un plan
           </Link>
+          <Link href="/dashboard/subscriptions/promos/new" className="btn btn-secondary btn-sm rounded-full">
+            Créer une promo
+          </Link>
           <Link href="/dashboard/subscriptions" className="btn btn-ghost btn-sm border-base-300 rounded-full">
             Voir transactions
           </Link>

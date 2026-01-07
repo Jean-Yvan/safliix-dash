@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import Header from "@/ui/components/header";
 import { rightsHoldersMock } from "../data";
 import { LinkedContent } from "@/types/api/imageRights";
@@ -18,7 +19,9 @@ const statusBadge: Record<string, string> = {
   expiré: "badge-error",
 };
 
-export default function Page({ params }: { params: { id: string } }) {
+export default function Page() {
+  const routeParams = useParams<{ id: string }>();
+  const holderId = routeParams?.id;
   const [filter, setFilter] = useState<"all" | "film" | "serie">("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,19 +29,20 @@ export default function Page({ params }: { params: { id: string } }) {
   const toast = useToast();
 
   const [holder, setHolder] = useState(() => {
-    const found = rightsHoldersMock.find((h) => h.id === params.id);
+    const found = holderId ? rightsHoldersMock.find((h) => h.id === holderId) : undefined;
     if (!found) return undefined;
     return { ...found, fullName: found.fullName || `${found.firstName} ${found.lastName}` };
   });
 
   useEffect(() => {
+    if (!holderId) return;
     let cancelled = false;
     const controller = new AbortController();
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const res = await imageRightsApi.detail(params.id, accessToken);
+        const res = await imageRightsApi.detail(holderId, accessToken);
         if (cancelled) return;
         setHolder({
           ...res,
@@ -58,13 +62,12 @@ export default function Page({ params }: { params: { id: string } }) {
       cancelled = true;
       controller.abort();
     };
-  }, [params.id, accessToken, toast]);
+  }, [holderId, accessToken, toast]);
 
   const filteredContents = useMemo(() => {
     if (!holder) return [];
-    return filter === "all"
-      ? holder.linkedContents
-      : holder.linkedContents.filter((c) => c.type === filter);
+    const contents = holder.linkedContents || [];
+    return filter === "all" ? contents : contents.filter((c) => c.type === filter);
   }, [holder, filter]);
 
   if (!holder) {
@@ -194,10 +197,10 @@ export default function Page({ params }: { params: { id: string } }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-white/50">Mentions légales</p>
-                <h3 className="text-lg font-semibold text-white">Périmètre d'utilisation</h3>
+                <h3 className="text-lg font-semibold text-white">Périmètre d&apos;utilisation</h3>
               </div>
               <span className="badge badge-outline border-primary/60 text-primary">
-                {holder.linkedContents.length} contenus liés
+                {(holder.linkedContents || []).length} contenus liés
               </span>
             </div>
             <p className="text-white/70 text-sm leading-relaxed">{holder.legalMentions}</p>

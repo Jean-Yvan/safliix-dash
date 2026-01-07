@@ -1,3 +1,5 @@
+'use client';
+
 import Header from "@/ui/components/header";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -70,6 +72,9 @@ export default function Page() {
       <Header title="Abonnements" className="rounded-2xl border border-base-300 px-5 py-3">
         <Link href="/dashboard/subscriptions/new" className="btn btn-primary btn-sm rounded-full">
           Créer un plan
+        </Link>
+        <Link href="/dashboard/subscriptions/promos" className="btn btn-secondary btn-sm rounded-full ml-2">
+          Voir les promos
         </Link>
       </Header>
       <div className="mb-3 flex items-center gap-2">

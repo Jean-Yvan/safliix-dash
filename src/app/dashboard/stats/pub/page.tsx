@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from "react";
 import FilterBtn from "@/ui/components/filterBtn";
 import Header from "@/ui/components/header";
@@ -49,7 +51,9 @@ export default function Page(){
         </div>
         <div className="flex items-center gap-2">
           <button className="btn btn-primary">Exporter les rapports</button>
-          <button className="btn btn-primary">Ajouter </button>
+          <Link href="/dashboard/pub/new" className="btn btn-primary">
+            Créer un pub
+          </Link>
         </div>
       </div>
       {loading && <div className="alert alert-info text-sm mt-3">Chargement des campagnes...</div>}

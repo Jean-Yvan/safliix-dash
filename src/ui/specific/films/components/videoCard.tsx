@@ -4,17 +4,17 @@ import { Gauge, Play, Star, TrendingUp } from "lucide-react";
 type Film = {
   id: string;
   title: string;
-  status: string;
-  director: string;
-  dp: string;
-  number: string;
-  category: string;
-  poster: string;
-  hero: string;
-  stats: { locations: number; revenue: string };
-  stars: number;
-  geo: { label: string; value: number; max: number; color: string }[];
-  donut: { catalog: number; viewed: number; revenue: string };
+  status?: string;
+  director?: string;
+  dp?: string;
+  number?: string | number;
+  category?: string;
+  poster?: string;
+  hero?: string;
+  stats?: { locations?: number; revenue?: string; [key: string]: unknown };
+  stars?: number;
+  geo?: { label?: string; value?: number; max?: number; color?: string }[];
+  donut?: { catalog?: number; viewed?: number; revenue?: string };
 };
 
 export default function VideoCard({
@@ -26,29 +26,43 @@ export default function VideoCard({
   mode: "location" | "abonnement";
   detailHref?: string;
 }) {
+  const poster = film.poster || "/image-icon.jpg";
+  const hero = film.hero || poster;
+  const locationsCount =
+    Number((film as any)?.stats?.locations ?? (film as any)?.stats?.locationsCount ?? 0) || 0;
+  const revenueValue =
+    (film as any)?.stats?.revenue ??
+    (film as any)?.stats?.revenus ??
+    (film as any)?.stats?.revenueTotal ??
+    (film as any)?.revenue ??
+    "0";
+  const donutViewed = Number((film as any)?.donut?.viewed ?? (film as any)?.donut?.value ?? 0) || 0;
+  const donutCatalog = Number((film as any)?.donut?.catalog ?? 0) || 0;
+  const donutRevenue = (film as any)?.donut?.revenue ?? revenueValue;
+
   const conicGradient = useMemo(() => {
     const segments = [
-      { color: "#16a34a", value: film.donut.viewed },
-      { color: "#fb7185", value: film.donut.catalog },
+      { color: "#16a34a", value: donutViewed },
+      { color: "#fb7185", value: donutCatalog },
     ];
-    const total = segments.reduce((s, seg) => s + seg.value, 0);
+    const total = segments.reduce((s, seg) => s + (Number.isFinite(seg.value) ? seg.value : 0), 0) || 1;
     let cursor = 0;
     return segments
       .map((seg) => {
         const start = (cursor / total) * 100;
-        cursor += seg.value;
+        cursor += Number.isFinite(seg.value) ? seg.value : 0;
         const end = (cursor / total) * 100;
         return `${seg.color} ${start}% ${end}%`;
       })
       .join(", ");
-  }, [film.donut.catalog, film.donut.viewed]);
+  }, [donutCatalog, donutViewed]);
 
   return (
     <div className="bg-neutral text-white p-4 rounded-xl shadow-lg flex flex-col gap-4 border border-base-300">
       <div className="flex items-start gap-4">
         <div className="flex flex-col items-center gap-2">
           <img
-            src={film.poster}
+            src={poster}
             alt="Video Poster"
             className="w-40 h-28 object-cover rounded-md"
           />
@@ -76,7 +90,7 @@ export default function VideoCard({
         <div className="flex items-start gap-4 flex-[1.2]">
           <div className="relative">
             <img
-              src={film.hero}
+              src={hero}
               alt="scene"
               className="w-60 h-48 object-cover rounded-md"
             />
@@ -93,7 +107,7 @@ export default function VideoCard({
                 <TrendingUp className="w-5 h-5 text-primary"/>  
               </div>
               <div>
-                  <h4 className="text-primary font-bold">{film.stats.locations}</h4>
+                  <h4 className="text-primary font-bold">{locationsCount}</h4>
                   <p className="text-xs text-white/60">{mode === "location" ? "Location" : "Abonnements"}</p>
               </div>
             </div>
@@ -102,7 +116,7 @@ export default function VideoCard({
                 <Gauge className="w-5 h-5 text-primary"/>  
               </div>
               <div>
-                  <h4 className="text-primary font-bold">{film.stats.revenue}</h4>
+                  <h4 className="text-primary font-bold">{revenueValue}</h4>
                   <p className="text-xs text-white/60">revenus</p>
               </div>
             </div>
@@ -130,7 +144,7 @@ export default function VideoCard({
                     <p>{geo.label}</p>
                     <p>{value.toLocaleString()} f</p>
                   </div>
-                  <progress className={`progress w-full ${geo.color}`} value={value} max={geo.max}></progress>
+                  <progress className={`progress w-full ${geo.color}`} value={value} max={geo.max ?? 100}></progress>
                 </div>
                 );
               })}
@@ -142,7 +156,7 @@ export default function VideoCard({
               <div className="absolute inset-0 rounded-full" style={{ background: `conic-gradient(${conicGradient})` }} />
               <div className="absolute inset-3 rounded-full bg-base-100 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-primary">{film.donut.viewed}%</div>
+                  <div className="text-3xl font-bold text-primary">{donutViewed}%</div>
                   <div className="text-xs text-white/60">min suivi</div>
                 </div>
               </div>
@@ -166,7 +180,7 @@ export default function VideoCard({
                 <span className="w-8 h-8 rounded-full bg-base-200 flex items-center justify-center text-xs">💰</span>
                 <div>
                   <p>Revenu généré</p>
-                  <p className="text-white/60">{film.donut.revenue}</p>
+                  <p className="text-white/60">{donutRevenue}</p>
                 </div>
               </div>
             </div>

@@ -5,11 +5,14 @@ import Header from "@/ui/components/header";
 import VideoCard from "@/ui/specific/films/components/videoCard";
 import { Download } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { filmsApi } from "@/lib/api/films";
+import { useEffect, useMemo, useState } from "react";
 import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { formatApiError } from "@/lib/api/errors";
 import { useToast } from "@/ui/components/toast/ToastProvider";
+import { imageRightsApi, normalizeRightsHolderGroups, type NormalizedRightsHolderGroup } from "@/lib/api/imageRights";
+import { filmsApi } from "@/lib/api/films";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import { RightsHolderMoviesReport, type MovieReportEntry } from "@/ui/pdf/RightsHolderMoviesReport";
 
 type FilmListItemWithRightsholder = {
 	id: string;
@@ -21,6 +24,7 @@ type FilmListItemWithRightsholder = {
 	category?: string;
 	poster?: string;
 	hero?: string;
+	type?: string;
 	stats?: Record<string, unknown>;
 	geo?: { label?: string; name?: string; value?: number; max?: number; color?: string }[];
 	stars?: number;
@@ -31,11 +35,21 @@ type FilmListItemWithRightsholder = {
 	rightHolder?: string;
 };
 
-type RightsholderGroup<T> = {
-	rightsholderId: string;
-	rightsholderName: string;
-	items: T[];
+type RightsholderGroup<T> = NormalizedRightsHolderGroup<T>;
+
+const dedupeOptions = (values: string[]) => {
+	const seen = new Set<string>();
+	return values.filter((val) => {
+		const key = val.toLowerCase();
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
 };
+const getRawFilmType = (film: FilmListItemWithRightsholder) =>
+	(film as any)?.type || (film as any)?.types || (film as any)?.secondType || "";
+const normalizeTypeValue = (type?: string | null) => (type || "").toLowerCase();
+const getFilmType = (film: FilmListItemWithRightsholder) => normalizeTypeValue(getRawFilmType(film));
 
 export default function Page() {
 	const [mode, setMode] = useState<"location" | "abonnement">("location");
@@ -51,32 +65,32 @@ export default function Page() {
 		},
 	]);
 
-	const filters =
-		mode === "location"
-			? ["Filtrer par statut", "Catégorie de film", "Meilleures ventes", "Dernier ajout"]
-			: ["Filtrer par statut", "Catégorie de film", "Dernier ajout"];
-
+	const [rawFilmsByRightsholder, setRawFilmsByRightsholder] = useState<RightsholderGroup<FilmListItemWithRightsholder>[]>([]);
 	const [filmsByRightsholder, setFilmsByRightsholder] = useState<RightsholderGroup<FilmListItemWithRightsholder>[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+	const [statusFilter, setStatusFilter] = useState<string>("all");
+	const [categoryFilter, setCategoryFilter] = useState<string>("all");
+const [sortFilter, setSortFilter] = useState<"none" | "best" | "latest">("none");
+const [typeFilter, setTypeFilter] = useState<string>("all");
+const [metaTypes, setMetaTypes] = useState<string[]>([]);
+const [metaCategories, setMetaCategories] = useState<{ id: string; label: string }[]>([]);
+const [startDate, setStartDate] = useState<string>("");
+const [endDate, setEndDate] = useState<string>("");
+	const [reportPeriod] = useState(() => {
+		const end = new Date();
+		const start = new Date();
+		start.setDate(start.getDate() - 30);
+		const fmt = (d: Date) => d.toLocaleDateString("fr-FR");
+		return { start: fmt(start), end: fmt(end) };
+	});
 	const accessToken = useAccessToken();
 	const toast = useToast();
 
-	const normalizeRightsholderName = (item: FilmListItemWithRightsholder) =>
-		item.rightHolderName || item.rightsholderName || item.rightHolder || "Ayant droit inconnu";
-
-	const groupByRightsholder = (items: FilmListItemWithRightsholder[]) => {
-		const map = new Map<string, RightsholderGroup<FilmListItemWithRightsholder>>();
-		items.forEach((item) => {
-			const name = normalizeRightsholderName(item);
-			const id = item.rightHolderId || name || "unknown";
-			if (!map.has(id)) {
-				map.set(id, { rightsholderId: String(id), rightsholderName: name, items: [] });
-			}
-			map.get(id)!.items.push(item);
-		});
-		return Array.from(map.values());
-	};
+	useEffect(() => {
+		setTypeFilter("all");
+	}, [mode]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -85,23 +99,19 @@ export default function Page() {
 			setLoading(true);
 			setError(null);
 			try {
-				const res = await filmsApi.list({ page: 1, pageSize: 10 }, accessToken);
+				const res = await imageRightsApi.contentsList("movie", {
+					accessToken,
+					signal: controller.signal,
+					from: startDate || undefined,
+					to: endDate || undefined,
+				});
+				console.log("[rights-holders/contents movies]", res);
 				if (cancelled) return;
-				const grouped =
-					(Array.isArray((res as any)?.rightsholders) && (res as any).rightsholders) ||
-					(Array.isArray((res as any)?.groups) && (res as any).groups);
+				const normalized = normalizeRightsHolderGroups<FilmListItemWithRightsholder>(res);
 
-				if (grouped) {
-					setFilmsByRightsholder(
-						(grouped as any[]).map((g) => ({
-							rightsholderId: g.rightsholderId || g.rightHolderId || g.id || g.name || "unknown",
-							rightsholderName: g.rightsholderName || g.rightHolderName || g.name || "Ayant droit inconnu",
-							items: g.items || [],
-						}))
-					);
-				} else {
-					setFilmsByRightsholder(groupByRightsholder((res?.items as FilmListItemWithRightsholder[]) ?? []));
-				}
+				const validGroups = normalized.filter((group) => Array.isArray(group.items) && group.items.length > 0);
+				setRawFilmsByRightsholder(validGroups);
+				setFilmsByRightsholder(validGroups);
 			} catch (err) {
 				if (cancelled || controller.signal.aborted) return;
 				const friendly = formatApiError(err);
@@ -116,15 +126,143 @@ export default function Page() {
 			cancelled = true;
 			controller.abort();
 		};
-	}, [accessToken, toast]);
+	}, [accessToken, toast, startDate, endDate]);
+
+	useEffect(() => {
+		let cancelled = false;
+		const controller = new AbortController();
+		const loadMeta = async () => {
+			try {
+				const res = await filmsApi.metaOptions(accessToken);
+				if (cancelled) return;
+				setMetaTypes(res.types || []);
+				setMetaCategories((res.categories || []).map((c) => ({ id: c.category || c.id, label: c.category || c.id })));
+			} catch (err) {
+				if (cancelled || controller.signal.aborted) return;
+				// soft-fail: keep defaults
+				console.warn("Failed to load film meta options", err);
+			}
+		};
+		loadMeta();
+		return () => {
+			cancelled = true;
+			controller.abort();
+		};
+	}, [accessToken]);
 
 	const updateJob = (id: string, updates: Partial<(typeof encodingJobs)[number]>) => {
 		setEncodingJobs((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)));
 	};
 
-	const handlePause = (id: string) => updateJob(id, { status: "paused" });
-	const handleResume = (id: string) => updateJob(id, { status: "processing" });
-	const handleFail = (id: string) => updateJob(id, { status: "failed" });
+const handlePause = (id: string) => updateJob(id, { status: "paused" });
+const handleResume = (id: string) => updateJob(id, { status: "processing" });
+const handleFail = (id: string) => updateJob(id, { status: "failed" });
+const buildReportEntries = (items: FilmListItemWithRightsholder[]): MovieReportEntry[] =>
+	items.map((film, idx) => ({
+		order: `${idx + 1}`.padStart(3, "0"),
+		title: film.title ?? "Sans titre",
+		share: (film as any)?.sharePercentage ?? (film as any)?.share ?? "",
+		views:
+			(film as any)?.views ??
+			(film as any)?.rentals ??
+			(film as any)?.stats?.locations ??
+			(film as any)?.stats?.vues ??
+			(film as any)?.stats?.views ??
+			0,
+		revenue:
+			(film as any)?.revenue ??
+			(film as any)?.stats?.revenue ??
+			(film as any)?.stats?.revenus ??
+			(film as any)?.donut?.revenue ??
+			0,
+	}));
+const toggleGroup = (id: string) =>
+		setCollapsedGroups((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	const getRevenue = (film: FilmListItemWithRightsholder) =>
+		Number(
+			(film as any)?.revenue ??
+				(film as any)?.stats?.revenue ??
+				(film as any)?.stats?.revenus ??
+				(film as any)?.donut?.revenue ??
+				0,
+		) || 0;
+	const getDate = (film: FilmListItemWithRightsholder) =>
+		(film as any)?.createdAt ? new Date((film as any).createdAt).getTime() : 0;
+
+	const applyFilters = useMemo(
+		() => (groups: RightsholderGroup<FilmListItemWithRightsholder>[]) =>
+			groups
+				.map((group) => {
+					let items = group.items || [];
+					items = items.filter((f) => getFilmType(f) === mode);
+					if (typeFilter !== "all") {
+						items = items.filter(
+							(f) => getFilmType(f) === normalizeTypeValue(typeFilter),
+						);
+					}
+					if (statusFilter !== "all") {
+						items = items.filter(
+							(f) => (f as any)?.status?.toLowerCase?.() === statusFilter.toLowerCase(),
+						);
+					}
+					if (categoryFilter !== "all") {
+						items = items.filter(
+							(f) => (f as any)?.category?.toLowerCase?.() === categoryFilter.toLowerCase(),
+						);
+					}
+					if (sortFilter === "best") {
+						items = [...items].sort((a, b) => getRevenue(b) - getRevenue(a));
+					} else if (sortFilter === "latest") {
+						items = [...items].sort((a, b) => getDate(b) - getDate(a));
+					}
+					return { ...group, items };
+				})
+				.filter((group) => Array.isArray(group.items) && group.items.length > 0),
+		[categoryFilter, mode, statusFilter, sortFilter, typeFilter],
+	);
+
+	useEffect(() => {
+		setFilmsByRightsholder(applyFilters(rawFilmsByRightsholder));
+	}, [applyFilters, rawFilmsByRightsholder]);
+
+	const allFilmsFlat = useMemo(
+		() => rawFilmsByRightsholder.flatMap((g) => g.items || []),
+		[rawFilmsByRightsholder],
+	);
+	const statusOptions = useMemo(
+		() => ["all", ...Array.from(new Set(allFilmsFlat.map((f) => (f as any)?.status).filter(Boolean)))],
+		[allFilmsFlat],
+	);
+	const categoryOptions = useMemo(
+		() =>
+			dedupeOptions(
+				[
+					"all",
+					...Array.from(new Set(allFilmsFlat.map((f) => (f as any)?.category).filter(Boolean))),
+					...metaCategories.map((c) => c.label),
+				].filter(Boolean) as string[],
+			),
+		[allFilmsFlat, metaCategories],
+	);
+	const typeOptions = useMemo(
+		() =>
+			dedupeOptions(
+				[
+					"all",
+					...Array.from(new Set(allFilmsFlat.map((f) => getRawFilmType(f)).filter(Boolean))),
+					...metaTypes,
+				].filter(Boolean) as string[],
+			),
+		[allFilmsFlat, metaTypes],
+	);
 
     return (
 			<div className="space-y-5">
@@ -240,9 +378,59 @@ export default function Page() {
 						</button>
 					</div>
 				<div className="flex flex-wrap items-center gap-2">
-					{filters.map((label) => (
-						<FilterBtn key={label} title={label} />
-					))}
+					<FilterBtn
+						title="Type"
+						selected={typeFilter}
+						options={typeOptions.map((t) => ({ label: t === "all" ? "Tous les types" : t, value: t }))}
+						onSelect={(v) => setTypeFilter(v)}
+					/>
+					<FilterBtn
+						title="Filtrer par statut"
+						selected={statusFilter}
+						options={statusOptions.map((s) => ({ label: s === "all" ? "Tous les statuts" : s, value: s }))}
+						onSelect={(v) => setStatusFilter(v)}
+					/>
+					<FilterBtn
+						title="Catégorie de film"
+						selected={categoryFilter}
+						options={categoryOptions.map((c) => ({ label: c === "all" ? "Toutes les catégories" : c, value: c }))}
+						onSelect={(v) => setCategoryFilter(v)}
+					/>
+					<FilterBtn
+						title="Tri"
+						selected={sortFilter}
+						options={[
+							{ label: "Par défaut", value: "none" },
+							{ label: "Meilleures ventes", value: "best" },
+							{ label: "Dernier ajout", value: "latest" },
+						]}
+						onSelect={(v) => setSortFilter(v as typeof sortFilter)}
+					/>
+					<div className="flex items-center gap-2">
+						<label className="text-xs text-white/70">Du</label>
+						<input
+							type="date"
+							className="input input-sm input-bordered bg-neutral text-white"
+							value={startDate}
+							onChange={(e) => setStartDate(e.target.value)}
+						/>
+						<label className="text-xs text-white/70">au</label>
+						<input
+							type="date"
+							className="input input-sm input-bordered bg-neutral text-white"
+							value={endDate}
+							onChange={(e) => setEndDate(e.target.value)}
+						/>
+						<button
+							className="btn btn-ghost btn-xs text-primary border-primary/40 rounded-full"
+							onClick={() => {
+								setStartDate("");
+								setEndDate("");
+							}}
+						>
+							Réinitialiser
+						</button>
+					</div>
 				</div>
 				</div>
 
@@ -252,20 +440,54 @@ export default function Page() {
 				<div className="space-y-6">
 					{filmsByRightsholder.map((group) => (
 						<div key={group.rightsholderId} className="space-y-3">
-							<div className="flex items-center gap-2">
-								<div className="badge badge-primary badge-outline">{group.rightsholderName}</div>
-								<span className="text-sm text-white/60">({group.items.length} film{group.items.length > 1 ? "s" : ""})</span>
+							<div className="flex items-center justify-between gap-2">
+								<div className="flex items-center gap-2">
+									<div className="badge badge-primary badge-outline">{group.rightsholderName}</div>
+									<span className="text-sm text-white/60">({group.items.length} film{group.items.length > 1 ? "s" : ""})</span>
+								</div>
+								<div className="flex items-center gap-2">
+									<button
+										className="btn btn-ghost btn-xs text-white border-base-300 rounded-full"
+										onClick={() => toggleGroup(group.rightsholderId)}
+									>
+										{collapsedGroups.has(group.rightsholderId) ? "Déplier" : "Plier"}
+									</button>
+									<PDFDownloadLink
+										document={
+											<RightsHolderMoviesReport
+												mode={mode}
+												rightsholderName={group.rightsholderName}
+												periodStart={reportPeriod.start}
+												periodEnd={reportPeriod.end}
+												entries={buildReportEntries(group.items)}
+											/>
+										}
+										fileName={`rapport-${group.rightsholderName || "ayant-droit"}-${mode}.pdf`}
+										className="btn btn-ghost btn-xs text-primary border-primary/50 rounded-full"
+									>
+										{({ loading }) => (
+											<span className="flex items-center gap-1">
+												{loading && <span className="loading loading-spinner loading-xs text-primary" />}
+												{loading ? "Préparation..." : "Télécharger le rapport"}
+											</span>
+										)}
+									</PDFDownloadLink>
+								</div>
 							</div>
-							<div className="space-y-4">
-								{group.items.map((film) => (
-									<VideoCard
-										key={film.id}
-										film={film as any}
-										mode={mode}
-										detailHref={`/dashboard/films/detail/${film.id}`}
-									/>
-								))}
-							</div>
+							{!collapsedGroups.has(group.rightsholderId) ? (
+								<div className="space-y-4">
+									{group.items.map((film) => (
+										<VideoCard
+											key={film.id}
+											film={film as any}
+											mode={mode}
+											detailHref={`/dashboard/films/detail/${film.id}`}
+										/>
+									))}
+								</div>
+							) : (
+								<div className="text-xs text-white/60 italic">Liste repliée</div>
+							)}
 						</div>
 					))}
 					{!loading && !error && filmsByRightsholder.length === 0 && (

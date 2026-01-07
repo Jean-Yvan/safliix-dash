@@ -10,17 +10,17 @@ import {
 
 export const statsApi = {
   films: (params?: StatsQueryParams, accessToken?: string) =>
-    apiRequest<FilmsStatsResponse>("/stats/films", { params, accessToken }),
+    apiRequest<FilmsStatsResponse>("/dashboard/stats/films", { params, accessToken }),
 
   revenue: (params?: StatsQueryParams, accessToken?: string) =>
-    apiRequest<RevenueStatsResponse>("/stats/revenue", { params, accessToken }),
+    apiRequest<RevenueStatsResponse>("/dashboard/stats/revenue", { params, accessToken }),
 
   users: (params?: StatsQueryParams, accessToken?: string) =>
-    apiRequest<UsersStatsResponse>("/stats/users", { params, accessToken }),
+    apiRequest<UsersStatsResponse>("/dashboard/stats/users", { params, accessToken }),
 
   pub: (params?: StatsQueryParams, accessToken?: string) =>
-    apiRequest<PubStatsResponse>("/stats/pub", { params, accessToken }),
+    apiRequest<PubStatsResponse>("/dashboard/stats/pub", { params, accessToken }),
 
   pubDetail: (id: string, accessToken?: string) =>
-    apiRequest<PubStatsDetail>(`/stats/pub/${id}`, { accessToken }),
+    apiRequest<PubStatsDetail>(`/dashboard/stats/pub/${id}`, { accessToken }),
 };

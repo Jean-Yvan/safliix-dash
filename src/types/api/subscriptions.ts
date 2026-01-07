@@ -36,6 +36,7 @@ export interface PlanItem {
   devices?: number;
   quality?: string;
   currency?: string;
+  description?:string;
 }
 
 export type PlanListResponse = PaginatedResponse<PlanItem>;

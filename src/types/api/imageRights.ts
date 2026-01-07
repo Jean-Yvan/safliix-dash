@@ -1,5 +1,6 @@
 export type ImageRightStatus = "actif" | "expiré" | "en attente";
 export type RightsHolderOrder = "createdAt_desc" | "createdAt_asc";
+export type RightsHolderContentType = "movie" | "serie";
 
 export interface RightsHolderListParams {
   page: number;
@@ -67,4 +68,41 @@ export interface CreateRightsHolderPayload {
 export interface RightsHolderListResponse {
   items: ImageRightsHolder[];
   pageInfo?: { page: number; pageSize: number; totalItems?: number; totalPages?: number };
+}
+
+export interface RightsHolderContentItem {
+  id: string;
+  title: string;
+  type?: "movie" | "serie" | "film" | string;
+  status?: string;
+  director?: string;
+  dp?: string;
+  number?: string | number;
+  category?: string;
+  poster?: string;
+  hero?: string;
+  stats?: Record<string, unknown>;
+  geo?: { label?: string; name?: string; value?: number; max?: number; color?: string }[];
+  stars?: number;
+  donut?: Record<string, unknown>;
+}
+
+export interface RightsHolderContentsResponse {
+  rightsholderId?: string;
+  rightsholderName?: string;
+  items?: RightsHolderContentItem[];
+  contents?: RightsHolderContentItem[];
+}
+
+export interface RightsHolderContentsGroup {
+  rightsholderId?: string;
+  rightsholderName?: string;
+  items?: RightsHolderContentItem[];
+  contents?: RightsHolderContentItem[];
+}
+
+export interface RightsHolderContentsListResponse {
+  rightsholders?: RightsHolderContentsGroup[];
+  groups?: RightsHolderContentsGroup[];
+  items?: RightsHolderContentsGroup[];
 }

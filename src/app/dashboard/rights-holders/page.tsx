@@ -5,7 +5,6 @@ import Link from "next/link";
 import Header from "@/ui/components/header";
 import DataTable from "@/ui/components/dataTable";
 import { rightsHolderColumns } from "./mapper";
-import { rightsHoldersMock } from "./data";
 import { ImageRightsHolder } from "@/types/api/imageRights";
 import { imageRightsApi } from "@/lib/api/imageRights";
 import { useAccessToken } from "@/lib/auth/useAccessToken";
@@ -28,9 +27,10 @@ export default function Page() {
       try {
         const res = await imageRightsApi.list({ page: 1, pageSize: 20 }, accessToken);
         if (cancelled) return;
-        const mapped = res.items.map((holder) => ({
+        const items = Array.isArray((res as any)?.items) ? (res as any).items : Array.isArray(res) ? (res as any) : [];
+        const mapped = items.map((holder) => ({
           ...holder,
-          fullName: holder.fullName || `${holder.firstName} ${holder.lastName}`,
+          fullName: holder.fullName || `${holder.firstName ?? ""} ${holder.lastName ?? ""}`.trim(),
           films: holder.films ?? 0,
           series: holder.series ?? 0,
         }));
@@ -40,14 +40,6 @@ export default function Page() {
         const friendly = formatApiError(err);
         setError(friendly.message);
         toast.error({ title: "Ayants droit", description: friendly.message });
-        // Fallback to mock data for offline/demo
-        const mapped = rightsHoldersMock.map(({ linkedContents, ...holder }) => ({
-          ...holder,
-          fullName: `${holder.firstName} ${holder.lastName}`,
-          films: linkedContents.filter((c) => c.type === "film").length,
-          series: linkedContents.filter((c) => c.type === "serie").length,
-        }));
-        setHolders(mapped);
       } finally {
         if (!cancelled) setLoading(false);
       }
