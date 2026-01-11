@@ -13,9 +13,10 @@ export interface AdminListParams {
 
 export interface AdminListItem {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email?: string;
-  phone?: string;
+  phoneNumber?: string;
   status: AdminStatus;
   role?: AdminRole;
   avatar?: string;
@@ -35,3 +36,20 @@ export interface AdminUpdatePayload {
   role?: AdminRole;
   profile?: Record<string, unknown>;
 }
+
+export type AdminFormState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: "ADMIN" | "SUPER_ADMIN";
+  status: "actif" | "inactif";
+  country: string;
+  city: string;
+  state:string;
+  address:string;
+  password:string;
+  confirmPassword:string;
+};
+
+export type AdminUpdateFormState = Partial<AdminFormState>;

@@ -11,6 +11,7 @@ type ConfirmationDialogProps = {
   status?: DialogStatus;
   resultMessage?: string | null;
   confirmLabel?: string;
+  confirmDisabled?: boolean;
   cancelLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -24,6 +25,7 @@ export default function ConfirmationDialog({
   status = "idle",
   resultMessage,
   confirmLabel = "Confirmer",
+  confirmDisabled,
   cancelLabel = "Annuler",
   onConfirm,
   onCancel,
@@ -86,6 +88,7 @@ export default function ConfirmationDialog({
                 type="button"
                 className="btn btn-primary rounded-full px-5"
                 onClick={onConfirm}
+                disabled={confirmDisabled}
               >
                 {confirmLabel}
               </button>

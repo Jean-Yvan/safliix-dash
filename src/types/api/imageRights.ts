@@ -2,6 +2,23 @@ export type ImageRightStatus = "actif" | "expiré" | "en attente";
 export type RightsHolderOrder = "createdAt_desc" | "createdAt_asc";
 export type RightsHolderContentType = "movie" | "serie";
 
+export type ImageRightsFormState = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  role: string;
+  scope: string;
+  sharePercentage: number;
+  startDate?: string;
+  endDate?: string;
+  status: "actif" | "en attente" | "expiré";
+  legal?: string;
+  notes?: string;
+};
+
+export type ImageRightsFormStateUpdate = Partial<ImageRightsFormState>;
+
 export interface RightsHolderListParams {
   page: number;
   pageSize: number;

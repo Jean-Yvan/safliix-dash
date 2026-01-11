@@ -1,5 +1,15 @@
 import { type PaginatedResponse } from "./common";
 
+export type PlanForm = {
+  name: string;
+  monthlyPrice: number;
+  yearlyDiscount: number; // %
+  currency: "XOF" | "EUR" | "USD";
+  devices: number;
+  quality: string;
+  description: string;
+};
+
 export interface SubscriptionListParams {
   page: number;
   pageSize: number;
@@ -37,6 +47,7 @@ export interface PlanItem {
   quality?: string;
   currency?: string;
   description?:string;
+  yearlyDiscount: number;
 }
 
 export type PlanListResponse = PaginatedResponse<PlanItem>;
@@ -44,10 +55,10 @@ export type PlanListResponse = PaginatedResponse<PlanItem>;
 export interface PlanDetail extends PlanItem {}
 
 export interface PlanPayload {
+  id:string;
   name: string;
   price: number;
-  period: string;
-  features: string[];
+  yearlyDiscount: number;
   status: string;
   devices?: number;
   quality?: string;

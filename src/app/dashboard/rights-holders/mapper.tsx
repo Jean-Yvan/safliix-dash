@@ -2,7 +2,7 @@ import { ColumnConfig } from "@/ui/components/dataTable";
 import Link from "next/link";
 import { ImageRightsHolder } from "@/types/api/imageRights";
 
-const placeholderAvatar = "/gildas.png";
+
 
 const statusTone: Record<ImageRightsHolder["status"], string> = {
   actif: "badge-success",
@@ -46,5 +46,5 @@ export const rightsHolderColumns: ColumnConfig<ImageRightsHolder>[] = [
       <span className={`badge ${statusTone[holder.status] || "badge-ghost"}`}>{holder.status}</span>
     ),
   },
-  { key: "lastUpdate", header: "MIS À JOUR", className: "text-white/60" },
+  
 ];

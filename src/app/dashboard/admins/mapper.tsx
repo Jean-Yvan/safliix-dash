@@ -16,9 +16,14 @@ export type Admin = {
 };
 
 export const columns : ColumnConfig<Admin>[] = [
+  { header: '', 
+    render: (admin:Admin) => (
+      <span>{admin.numero}</span>
+    ) 
+  },
+  
   {
-    key: 'nom',
-    header: 'NOM',
+    header: '',
     render: (admin : Admin) => (
       <Link href={`/dashboard/admins/${admin.id}`} className="flex items-center gap-3 hover:text-primary">
         <div className="avatar">
@@ -26,22 +31,28 @@ export const columns : ColumnConfig<Admin>[] = [
             <img src={admin.imgProfileUrl} alt={admin.nom} />
           </div>
         </div>
-        <div>
-          <div className="font-bold">{admin.nom}</div>
-          <p className="text-xs text-primary">Voir les détails</p>
-        </div>
       </Link>
     ),
   },
-  { key: 'numero', header: 'NUMERO' },
-  { key: 'tel', header: 'TEL', className: 'text-primary' },
+  {
+    key: 'nom', header:'NOM',
+    render: (admin:Admin) => (
+      <span>{admin.nom}</span>
+    ) 
+  },
+  
+  { key: 'tel', header: 'TEL', className: 'text-primary',  
+    render: (admin:Admin) => (
+      <span>{admin.tel}</span>
+    ),
+  },
   { key: 'mail', header: 'MAIL', className: 'text-primary' },
   {
-    key: 'status',
-    header: 'STATUS',
+    key: 'role',
+    header: 'ROLE',
     render: (admin : Admin) => (
       <span className={`badge ${admin.status === 'actif' ? 'badge-success' : 'badge-error'}`}>
-        {admin.status}
+        {admin.role}
       </span>
     ),
   },

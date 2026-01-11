@@ -2,16 +2,34 @@
 
 import { useState, useMemo, useEffect } from 'react';
 
-export type ColumnConfig<T> = {
-  key: keyof T;
-  header: string;
-  render?: (row: T) => React.ReactNode;
+export type ColumnConfig<T> =
+  | {
+      key: keyof T;
+      header: string;
+      render?: (row: T) => React.ReactNode;
+      className?: string;
+    }
+  | {
+      key?: never;
+      header: string;
+      render: (row: T) => React.ReactNode;
+      className?: string;
+    };
+
+
+export type RowAction<T> = {
+  label?: string;
+  icon?: React.ReactNode;
+  onClick: (row: T) => void;
   className?: string;
+  show?: (row: T) => boolean;
 };
+
 
 type DataTableProps<T> = {
   data: T[];
   columns: ColumnConfig<T>[];
+  actions?: RowAction<T>[];
   itemsPerPage?: number;
 };
 
@@ -19,6 +37,7 @@ export default function DataTable<T extends { [key: string]: any }>({
   data,
   columns,
   itemsPerPage = 10,
+  actions = [],
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,6 +48,7 @@ export default function DataTable<T extends { [key: string]: any }>({
 
     return data.filter((item) =>
       columns.some((col) => {
+         if (!col.key) return false; 
         const rawValue = item[col.key];
         if (rawValue === null || rawValue === undefined) return false;
         return rawValue
@@ -73,23 +93,39 @@ export default function DataTable<T extends { [key: string]: any }>({
                 {col.header}
               </th>
             ))}
-            <th className="text-primary">ACTIONS</th>
+            {actions.length > 0 && (
+              <th className="text-primary text-center">ACTIONS</th>
+            )}
           </tr>
         </thead>
         <tbody>
           {paginatedData.map((row, rowIndex) => (
-            <tr key={rowIndex}>
+            <tr key={rowIndex} >
               <td>
                 <input type="checkbox" className="checkbox" />
               </td>
               {columns.map((col, colIndex) => (
                 <td key={colIndex} className={col.className}>
-                  {col.render ? col.render(row) : row[col.key]}
+                 {col.render ? col.render(row) : col.key ? row[col.key] : null}
                 </td>
               ))}
-              <td>
-                <button className="btn btn-ghost btn-xs">Détails</button>
-              </td>
+              {actions.length > 0 && (
+                <td className="flex gap-1 justify-center">
+                  {actions
+                    .filter((action) => (action.show ? action.show(row) : true))
+                    .map((action, actionIndex) => (
+                      <button
+                        key={actionIndex}
+                        className={`btn btn-xs ${action.className ?? 'btn-ghost'}`}
+                        onClick={() => action.onClick(row)}
+                      >
+                        {action.icon}
+                        {action.label}
+                      </button>
+                    ))}
+                </td>
+              )}
+
             </tr>
           ))}
         </tbody>

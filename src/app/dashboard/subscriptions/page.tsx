@@ -70,18 +70,17 @@ export default function Page() {
   return (
     <div>
       <Header title="Abonnements" className="rounded-2xl border border-base-300 px-5 py-3">
-        <Link href="/dashboard/subscriptions/new" className="btn btn-primary btn-sm rounded-full">
-          Créer un plan
+        
+        <div className="mb-3 flex items-center gap-2">
+        <Link href="/dashboard/subscriptions/plans" className="btn btn-ghost btn-sm border-base-300 rounded-full">
+          Voir les plans
         </Link>
         <Link href="/dashboard/subscriptions/promos" className="btn btn-secondary btn-sm rounded-full ml-2">
           Voir les promos
         </Link>
-      </Header>
-      <div className="mb-3 flex items-center gap-2">
-        <Link href="/dashboard/subscriptions/plans" className="btn btn-ghost btn-sm border-base-300 rounded-full">
-          Voir les plans
-        </Link>
       </div>
+      </Header>
+      
       {loading && <div className="alert alert-info text-sm">Chargement des abonnements...</div>}
       {error && <div className="alert alert-error text-sm">{error}</div>}
       <div className="mt-4 bg-neutral shadow-base-200 shadow-xl">

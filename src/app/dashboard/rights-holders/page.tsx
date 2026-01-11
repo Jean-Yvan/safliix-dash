@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Header from "@/ui/components/header";
 import DataTable from "@/ui/components/dataTable";
@@ -10,6 +11,8 @@ import { imageRightsApi } from "@/lib/api/imageRights";
 import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { formatApiError } from "@/lib/api/errors";
+import ConfirmationDialog from "@/ui/components/confirmationDialog";
+import { useDeleteWithConfirmation } from "@/lib/hooks/useDeletionWithConfirmation";
 
 export default function Page() {
   const [holders, setHolders] = useState<ImageRightsHolder[]>([]);
@@ -17,6 +20,20 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const accessToken = useAccessToken();
   const toast = useToast();
+  const router = useRouter();
+
+  const deleteHolder = useDeleteWithConfirmation<ImageRightsHolder>({
+      entityName: "le compte administrateur",
+      getLabel: (a) => a.fullName ?? `${a.firstName} ${a.lastName}`,
+      deleteFn: (id:string) => imageRightsApi.delete(id, accessToken),
+      onDeleted: (id:string) => setHolders((prev) => prev.filter((a) => a.id !== id)),
+        
+    });
+  
+    const isConfirmDisabled =
+    deleteHolder.confirmText !== "SUPPRIMER" ||
+    deleteHolder.status === "loading";
+  
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +86,7 @@ export default function Page() {
             <span className="font-semibold text-white">{stats.total}</span>{" "}
             ayants droit référencés
           </div>
-          <Link href="/dashboard/rights-holders/add" className="btn btn-primary btn-sm rounded-full">
+          <Link href="/dashboard/rights-holders/edit/new" className="btn btn-primary btn-sm rounded-full">
             Nouvel ayant droit
           </Link>
         </div>
@@ -107,11 +124,60 @@ export default function Page() {
       </div>
 
       <div>
-        <DataTable data={holders} columns={rightsHolderColumns} itemsPerPage={8} />
+        <DataTable 
+          data={holders} 
+          columns={rightsHolderColumns} 
+          itemsPerPage={8}
+          actions={[
+            {
+              label: "Voir",
+              className: "btn-info",
+              onClick: (row) =>
+                router.push(`/dashboard/rights-holders/${row.id}`),
+            },
+            {
+              label: "Modifier",
+              className: "btn-warning",
+              onClick: (row) =>
+                router.push(`/dashboard/rights-holders/edit/${row.id}`),
+            },
+            {
+              label: "Supprimer",
+              className: "btn-error",
+              onClick: deleteHolder.openDialog,
+            },
+          ]}
+          />
         {holders.length === 0 && (
           <p className="text-sm text-white/70 mt-2">Aucun ayant droit pour le moment.</p>
         )}
       </div>
+
+      <ConfirmationDialog
+          open={deleteHolder.open}
+          title="Suppression définitive"
+          message={deleteHolder.dialogMessage}
+          status={deleteHolder.status}
+          resultMessage={deleteHolder.resultMessage}
+          confirmDisabled={isConfirmDisabled}
+          onConfirm={deleteHolder.confirmDelete}
+          onCancel={deleteHolder.closeDialog}
+        >
+          <div className="space-y-2">
+            <p className="text-sm text-white/80">
+              Tapez <strong className="text-red-400">SUPPRIMER</strong> pour confirmer :
+            </p>
+  
+            <input
+              type="text"
+              value={deleteHolder.confirmText}
+              onChange={(e) => deleteHolder.setConfirmText(e.target.value)}
+              placeholder="SUPPRIMER"
+              className="input input-bordered w-full bg-base-200 border-red-500"
+              disabled={deleteHolder.status === "loading"}
+            />
+          </div>
+        </ConfirmationDialog>
     </div>
   );
 }
