@@ -8,6 +8,10 @@ import { usersApi } from "@/lib/api/users";
 import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { formatApiError } from "@/lib/api/errors";
 import { useToast } from "@/ui/components/toast/ToastProvider";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import ConfirmationDialog from "@/ui/components/confirmationDialog";
+import { useDeleteWithConfirmation } from "@/lib/hooks/useDeletionWithConfirmation";
 
 const placeholderAvatar = "/gildas.png";
 
@@ -17,7 +21,21 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null);
   const accessToken = useAccessToken();
   const toast = useToast();
+  const router = useRouter();
 
+  const deletePerson = useDeleteWithConfirmation<Person>({
+      entityName: "le compte administrateur",
+      getLabel: (p) => p.nom,
+      deleteFn: (id:string) => usersApi.delete(id, accessToken),
+      onDeleted: (id:string) => setPersonnes((prev) => prev.filter((a) => a.id !== id)),
+        
+    });
+    
+      const isConfirmDisabled =
+      deletePerson.confirmText !== "SUPPRIMER" ||
+      deletePerson.status === "loading";
+    
+  
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
@@ -29,7 +47,8 @@ export default function Page() {
         if (cancelled) return;
         console.dir(res, {depth:2});
         const mapped: Person[] = res.items.map((u, idx) => ({
-          nom: u.name,
+          id:u.id,
+          nom: `${u.firstName} ${u.lastName}`,
           numero: idx + 1,
           tel: u.phone || "",
           mail: u.email || "",
@@ -57,15 +76,60 @@ export default function Page() {
 
   return (
     <div className="">
-      <Header title="Utilisateurs"/>
+      <Header title="Utilisateurs">
+        <Link href={"/dashboard/users/edit/new"} className="btn btn-primary">Ajouter un utilisateur</Link>
+      </Header>
       {loading && <div className="alert alert-info text-sm mt-3">Chargement des utilisateurs...</div>}
       {error && <div className="alert alert-error text-sm mt-3">{error}</div>}
       <div className="mt-4">
-       <DataTable data={personnes} columns={columns} />
+       <DataTable data={personnes} columns={columns} actions={
+          [{
+              label: "Voir",
+              className: "btn-info",
+              onClick: (row) =>
+                router.push(`/dashboard/users/${row.id}`),
+            },
+            {
+              label: "Modifier",
+              className: "btn-warning",
+              onClick: (row) =>
+                router.push(`/dashboard/users/edit/${row.id}`),
+            },
+            {
+              label: "Supprimer",
+              className: "btn-error",
+              onClick: deletePerson.openDialog,
+            },
+       ]} />
        {!loading && !error && personnes.length === 0 && (
         <p className="text-sm text-white/70 mt-3">Aucun utilisateur.</p>
        )}
       </div>
+      <ConfirmationDialog
+                open={deletePerson.open}
+                title="Suppression définitive"
+                message={deletePerson.dialogMessage}
+                status={deletePerson.status}
+                resultMessage={deletePerson.resultMessage}
+                confirmDisabled={isConfirmDisabled}
+                onConfirm={deletePerson.confirmDelete}
+                onCancel={deletePerson.closeDialog}
+              >
+                <div className="space-y-2">
+                  <p className="text-sm text-white/80">
+                    Tapez <strong className="text-red-400">SUPPRIMER</strong> pour confirmer :
+                  </p>
+        
+                  <input
+                    type="text"
+                    value={deletePerson.confirmText}
+                    onChange={(e) => deletePerson.setConfirmText(e.target.value)}
+                    placeholder="SUPPRIMER"
+                    className="input input-bordered w-full bg-base-200 border-red-500"
+                    disabled={deletePerson.status === "loading"}
+                  />
+                </div>
+              </ConfirmationDialog>
   </div>
 );
 } 

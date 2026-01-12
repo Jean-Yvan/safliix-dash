@@ -11,15 +11,29 @@ export interface UserListParams {
   role?: UserRole;
 }
 
-export interface UserListItem {
-  id: string;
-  name: string;
-  email?: string;
+export interface UserPayload {
+  firstName: string;
+  lastName:string;
+  email: string;
   phone?: string;
   status: UserStatus;
-  role?: UserRole;
+  role: UserRole;
+  avatarUrl?: string;
+  password:string;
+  confirmPassword:string;
+}
+
+
+export interface UserListItem {
+  id: string;
+  firstName: string;
+  lastName:string;
+  email: string;
+  phone?: string;
+  status: UserStatus;
+  role: UserRole;
   avatar?: string;
-  createdAt?: string;
+  createdAt: string;
 }
 
 export type UserListResponse = PaginatedResponse<UserListItem>;

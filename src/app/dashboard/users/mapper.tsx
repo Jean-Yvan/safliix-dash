@@ -3,6 +3,7 @@ import Link from "next/link";
 
 
 export type Person = {
+  id:string;
   nom: string;
   numero: number;
   tel: string;
@@ -14,9 +15,9 @@ export type Person = {
 };
 
 export const columns : ColumnConfig<Person>[] = [
+  { key: 'numero', header: 'ID' },
   {
-    key: 'nom',
-    header: 'NOM',
+    header: '',
     render: (person : Person) => (
       <Link href={`/dashboard/users/${person.numero}`} className="flex items-center gap-3 hover:text-primary">
         <div className="avatar">
@@ -24,14 +25,17 @@ export const columns : ColumnConfig<Person>[] = [
             <img src={person.imgProfileUrl} alt={person.nom} />
           </div>
         </div>
-        <div>
-          <div className="font-bold">{person.nom}</div>
-          <p className="text-xs text-primary">Voir les détails</p>
-        </div>
+        
       </Link>
     ),
   },
-  { key: 'numero', header: 'NUMERO' },
+
+  { header: 'TEL', 
+    className: 'text-primary',
+    render: (person:Person) => <span>{`${person.nom}`}</span> 
+  
+  },
+  
   { key: 'tel', header: 'TEL', className: 'text-primary' },
   { key: 'mail', header: 'MAIL', className: 'text-primary' },
   {

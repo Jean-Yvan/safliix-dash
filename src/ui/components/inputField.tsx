@@ -16,7 +16,7 @@ export default function InputField({
 }: Readonly<{
   type?: string;
   placeholder?: string;
-  value: string | number;
+  value: string | number | undefined;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyDown?: (e:React.KeyboardEvent<HTMLInputElement>) => void;
   error?: string;
