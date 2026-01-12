@@ -14,7 +14,7 @@ export class ApiError<T = unknown> extends Error {
 
 export interface RequestOptions<TBody = unknown> {
   method?: HttpMethod;
-  params?: Record<string, string | number | boolean | undefined | null>;
+  params?: Record<string, any>;
   body?: TBody;
   headers?: Record<string, string>;
   auth?: boolean;
@@ -41,6 +41,27 @@ const buildUrl = (path: string, params?: RequestOptions["params"]) => {
 
 const shouldSendBody = (method: HttpMethod) => !["GET", "HEAD"].includes(method);
 
+// utils/api.ts
+export function serializeParams(params?: Record<string, any>): Record<string, string | number | boolean> | undefined {
+  if (!params) return undefined;
+
+  const serialized: Record<string, string | number | boolean> = {};
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined) return; // ignore undefined
+    if (value === null) return;      // ignore null, tu peux changer si tu veux garder "null" comme string
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      serialized[key] = value;
+    } else {
+      // convertit enums ou autres objets en string
+      serialized[key] = String(value);
+    }
+  });
+
+  return serialized;
+}
+
+
 const parseResponse = async <T>(response: Response): Promise<T> => {
   if (response.status === 204) return undefined as T;
   const contentType = response.headers.get("content-type") || "";
@@ -54,7 +75,8 @@ export async function apiRequest<TResponse = unknown, TBody = unknown>(
   path: string,
   { method = "GET", params, body, headers, auth = true, accessToken, signal }: RequestOptions<TBody> = {},
 ): Promise<TResponse> {
-  const url = buildUrl(path, params);
+  const safeParams = serializeParams(params);
+  const url = buildUrl(path, safeParams);
   const finalHeaders = new Headers(headers);
   const requestLog = {
     method,
@@ -103,7 +125,7 @@ export async function apiRequest<TResponse = unknown, TBody = unknown>(
   const rawData = await parseResponse<TResponse>(response);
   const unwrappedData =
     rawData && typeof rawData === "object" && "data" in (rawData as Record<string, unknown>)
-      ? (rawData as { data: TResponse }).data
+      ? (rawData as unknown as { data: TResponse }).data
       : rawData;
   console.info("[api] request succeeded", { ...requestLog, status: response.status }, unwrappedData);
   return unwrappedData;

@@ -1,5 +1,6 @@
 import { type PaginatedResponse } from "./common";
 
+
 export type PlanForm = {
   name: string;
   monthlyPrice: number;
@@ -40,13 +41,11 @@ export interface PlanItem {
   id: string;
   name: string;
   price: number;
-  period: string;
-  features?: string[];
   status?: string;
-  devices?: number;
+  devices: number;
   quality?: string;
-  currency?: string;
-  description?:string;
+  currency: string;
+  description:string;
   yearlyDiscount: number;
 }
 
@@ -55,7 +54,6 @@ export type PlanListResponse = PaginatedResponse<PlanItem>;
 export interface PlanDetail extends PlanItem {}
 
 export interface PlanPayload {
-  id:string;
   name: string;
   price: number;
   yearlyDiscount: number;
@@ -64,6 +62,8 @@ export interface PlanPayload {
   quality?: string;
   currency?: string;
 }
+
+export type PlanPayloadUpdate = Partial<PlanPayload>;
 
 export interface CreateSubscriptionPayload {
   userId: string;
@@ -74,3 +74,24 @@ export interface CreateSubscriptionPayload {
 }
 
 export interface CreateSubscriptionResponse { subscriptionId: string }
+
+
+export interface PromotionPayload  {
+  name: string;
+  startDate: string;
+  endDate: string;
+  description?:string;
+  isActive: boolean;
+}
+
+export interface PromotionItem extends PromotionPayload {
+  id:string;
+}
+
+export type PromotionListResponse = PaginatedResponse<PromotionItem>;
+
+export type PromotionPayloadUpdate = Partial<PromotionPayload>;
+export interface PromoListParams {
+  page: number;
+  pageSize: number;
+}

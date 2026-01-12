@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { withRetry } from "@/lib/api/retry";
@@ -11,9 +11,10 @@ import type { DialogStatus } from "@/ui/components/confirmationDialog";
 import { PlanForm } from "@/types/api/subscriptions";
 
 
-export function usePlanForm() {
+export function usePlanForm(id:string) {
   const toast = useToast();
   const accessToken = useAccessToken();
+  const isEdit = !!id && id !== "new";
 
   const {
     control,
@@ -39,6 +40,30 @@ export function usePlanForm() {
   const [billingView, setBillingView] = useState<"mensuel" | "annuel">("mensuel");
 
 
+  useEffect(() => {
+      if (!isEdit) return;
+  
+      plansApi
+        .getById(id!, accessToken)
+        .then((data) => {
+          reset({
+            name: data.name,
+            monthlyPrice: data.price,
+            yearlyDiscount: data.yearlyDiscount,
+            currency: data.currency as "XOF" | "EUR" | "USD",
+            devices: data.devices,
+            quality: data.quality,
+            description: data.description,
+          });
+        })
+        .catch(() => {
+          toast.error({
+            title: "Chargement",
+            description: "Impossible de charger l'ayant droit.",
+          });
+        });
+    }, [id]);
+
   const openConfirm = handleSubmit((data) => {
     setPendingPlan(data);
     setDialogOpen(true);
@@ -63,13 +88,13 @@ export function usePlanForm() {
     setDialogResult(null);
 
     try {
-      await withRetry(() =>
+      if(!isEdit){
+        await withRetry(() =>
         plansApi.create(
           {
             name: pendingPlan.name,
             price: pendingPlan.monthlyPrice,
             yearlyDiscount: pendingPlan.yearlyDiscount,
-            features: pendingPlan.description ? [pendingPlan.description] : [],
             status: "active",
             devices: pendingPlan.devices,
             quality: pendingPlan.quality,
@@ -79,16 +104,46 @@ export function usePlanForm() {
         ),
       );
 
-      setDialogStatus("success");
-      setDialogResult("Plan créé avec succès.");
+        setDialogStatus("success");
+        setDialogResult("Plan créé avec succès.");
 
-      toast.success({
-        title: "Plan",
-        description: "Plan créé avec succès.",
-      });
+        toast.success({
+          title: "Plan",
+          description: "Plan créé avec succès.",
+        });
 
-      reset();
-      setTimeout(closeDialog, 800);
+        reset();
+        setTimeout(closeDialog, 800);
+      }else{
+        await withRetry(() =>
+        plansApi.update(
+          id,
+          {
+            
+            name: pendingPlan.name,
+            price: pendingPlan.monthlyPrice,
+            yearlyDiscount: pendingPlan.yearlyDiscount,
+            status: "active",
+            devices: pendingPlan.devices,
+            quality: pendingPlan.quality,
+            currency: pendingPlan.currency,
+          },
+          accessToken,
+        ),
+      );
+
+        setDialogStatus("success");
+        setDialogResult("Plan créé avec succès.");
+
+        toast.success({
+          title: "Plan",
+          description: "Plan créé avec succès.",
+        });
+
+        reset();
+        setTimeout(closeDialog, 800);
+      }
+      
     } catch (err) {
       const friendly = formatApiError(err);
       setDialogStatus("error");
@@ -120,5 +175,7 @@ export function usePlanForm() {
     openConfirm,
     confirmSubmit,
     closeDialog,
+
+    isEdit
   };
 }

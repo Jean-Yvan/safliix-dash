@@ -1,8 +1,8 @@
 import type { ColumnConfig } from "@/ui/components/dataTable";
-import { PlanPayload } from "@/types/api/subscriptions";
-import Link from "next/link";
+import { PlanItem } from "@/types/api/subscriptions";
 
-export const columns: ColumnConfig <PlanPayload>[] = [
+
+export const columns: ColumnConfig <PlanItem>[] = [
   {
     key: "name",
     header: "Plan",
@@ -39,16 +39,6 @@ export const columns: ColumnConfig <PlanPayload>[] = [
   {
     key: "quality",
     header: "Qualité",
-  },
-  {
-    header: "Actions",
-    render: (plan) => (
-      <Link
-        href={`/dashboard/subscriptions/plans/${plan.id}`}
-        className="btn btn-ghost btn-xs text-primary border-primary/50 rounded-full"
-      >
-        Voir les détails
-      </Link>
-    ),
-  },
+  }
+  
 ];

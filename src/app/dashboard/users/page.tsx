@@ -27,6 +27,7 @@ export default function Page() {
       try {
         const res = await usersApi.list({ page: 1, pageSize: 20 }, accessToken);
         if (cancelled) return;
+        console.dir(res, {depth:2});
         const mapped: Person[] = res.items.map((u, idx) => ({
           nom: u.name,
           numero: idx + 1,

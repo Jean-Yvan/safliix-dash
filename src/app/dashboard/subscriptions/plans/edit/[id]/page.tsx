@@ -6,15 +6,16 @@ import ConfirmationDialog from "@/ui/components/confirmationDialog";
 import { Controller } from "react-hook-form";
 import { usePlanForm } from "./usePlanForm";
 import FormWithAside from "@/ui/components/formWithAside";
+import { useParams } from "next/navigation";
 
 export default function Page() {
+
+  const params = useParams();
+  const id = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const {
     control,
     errors,
     isSubmitting,
-
-    
-
     dialogOpen,
     dialogStatus,
     dialogResult,
@@ -23,13 +24,16 @@ export default function Page() {
     openConfirm,
     confirmSubmit,
     closeDialog,
-  } = usePlanForm();
+    isEdit
+  } = usePlanForm(id ?? "new");
+
+  const title = isEdit ? "Modifier un Plan" : "Créer un Plan"; 
 
   return (
     <>
       <div className="space-y-5">
         <Header
-          title="Nouveau plan"
+          title={title}
           className="rounded-2xl border border-base-300 px-5 py-3"
         />
 
@@ -186,7 +190,7 @@ export default function Page() {
               className="btn btn-primary rounded-full px-6"
               disabled={isSubmitting}
             >
-              Créer le plan
+              {isEdit ? "Mettre ầ jour" :  "Créer le plan"}
             </button>
 
             <a

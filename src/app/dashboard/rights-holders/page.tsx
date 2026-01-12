@@ -23,12 +23,12 @@ export default function Page() {
   const router = useRouter();
 
   const deleteHolder = useDeleteWithConfirmation<ImageRightsHolder>({
-      entityName: "le compte administrateur",
-      getLabel: (a) => a.fullName ?? `${a.firstName} ${a.lastName}`,
-      deleteFn: (id:string) => imageRightsApi.delete(id, accessToken),
-      onDeleted: (id:string) => setHolders((prev) => prev.filter((a) => a.id !== id)),
-        
-    });
+    entityName: "le compte administrateur",
+    getLabel: (a) => a.fullName ?? `${a.firstName} ${a.lastName}`,
+    deleteFn: (id:string) => imageRightsApi.delete(id, accessToken),
+    onDeleted: (id:string) => setHolders((prev) => prev.filter((a) => a.id !== id)),
+      
+  });
   
     const isConfirmDisabled =
     deleteHolder.confirmText !== "SUPPRIMER" ||
