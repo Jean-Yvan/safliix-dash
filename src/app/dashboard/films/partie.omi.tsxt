@@ -1,0 +1,30 @@
+<div className="flex flex-wrap items-center gap-2">
+          <FilterBtn
+            title="Type"
+            selected={typeFilter}
+            options={typeOptions.map((t) => ({ label: t === "all" ? "Tous les types" : t, value: t }))}
+            onSelect={setTypeFilter}
+          />
+          <FilterBtn
+            title="Filtrer par statut"
+            selected={statusFilter}
+            options={statusOptions.map((s) => ({ label: s === "all" ? "Tous les statuts" : s, value: s }))}
+            onSelect={setStatusFilter}
+          />
+          <FilterBtn
+            title="Catégorie de film"
+            selected={categoryFilter}
+            options={categoryOptions.map((c) => ({ label: c === "all" ? "Toutes les catégories" : c, value: c }))}
+            onSelect={setCategoryFilter}
+          />
+          <FilterBtn
+            title="Tri"
+            selected={sortFilter}
+            options={[
+              { label: "Par défaut", value: "none" },
+              { label: "Meilleures ventes", value: "best" },
+              { label: "Dernier ajout", value: "latest" },
+            ]}
+            onSelect={setSortFilter}
+          />
+        </div>

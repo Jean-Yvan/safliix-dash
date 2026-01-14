@@ -4,10 +4,9 @@ import {
   type ImageRightsHolder,
   type ImageRightsHolderDetail,
   type ImageRightsFormStateUpdate,
-  type RightsHolderContentsGroup,
+  type RightsHolderContentResponse,
   type RightsHolderListParams,
   type RightsHolderContentType,
-  type RightsHolderContentsListResponse,
   type RightsHolderListResponse,
 } from "@/types/api/imageRights";
 
@@ -51,7 +50,7 @@ export const imageRightsApi = {
   
   /** Récupérer les contenus d’un ayant droit */
   contents: (id: string, type: RightsHolderContentType, accessToken?: string, signal?: AbortSignal) =>
-    apiRequest<RightsHolderContentsGroup[]>(`/api/rights-holders/${id}/contents`, {
+    apiRequest<RightsHolderContentResponse>(`/api/rights-holders/${id}/contents`, {
       params: { type },
       accessToken,
       signal,
@@ -69,7 +68,7 @@ export const imageRightsApi = {
         : accessTokenOrOptions || {};
     const { accessToken, from, to, signal: finalSignal } = options;
 
-    return apiRequest<RightsHolderContentsListResponse>(
+    return apiRequest<RightsHolderContentResponse[]>(
       "/rights-holders/contents",
       { params: { type, from, to }, accessToken, signal: finalSignal },
     );
@@ -78,21 +77,3 @@ export const imageRightsApi = {
   
 };
 
-/**
- * Normalisation des données côté frontend
- * Ici on fait simplement un cast vers le type attendu
- * Aucun regroupement manuel nécessaire si le backend renvoie déjà des groups
- */
-export function normalizeRightsHolderGroups(
-  res: RightsHolderContentsListResponse | RightsHolderContentsGroup[],
-): RightsHolderContentsGroup[] {
-  if (!res) return [];
-
-  // Si la réponse est enveloppée dans "data", on unwrap
-  if (typeof res === "object" && "data" in res) {
-    return Array.isArray(res.data) ? res.data : [];
-  }
-
-  // Sinon on retourne le tableau tel quel
-  return Array.isArray(res) ? res : [];
-}

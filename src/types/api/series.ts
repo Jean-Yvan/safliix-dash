@@ -2,6 +2,15 @@ import { type PaginatedResponse } from "./common";
 
 export type SeriesStatus = "publish" | "pause" | "draft" | string;
 
+export interface SerieStats {
+  subscriberViewPercentage: number;
+  totalViews: number;
+  totalMinutesWatched: number;
+  catalogTotalMinutes: number;
+  cumulativeViewMinutes: number;
+  revenue: number;
+}
+
 export interface SeriesListParams {
   page: number;
   pageSize: number;
@@ -21,9 +30,8 @@ export interface SeriesListItem {
   category?: string;
   poster?: string;
   hero?: string;
-  stats?: Record<string, unknown>;
-  stars?: number;
-  geo?: { label?: string; name?: string; value?: number; max?: number; color?: string }[];
+  stats: SerieStats;
+  stars: number;
   donut?: { label?: string; value: number; color?: string };
 }
 

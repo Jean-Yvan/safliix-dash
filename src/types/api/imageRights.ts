@@ -1,3 +1,5 @@
+import { FilmListItem } from "./films";
+import { SeriesListItem } from "./series";
 export type ImageRightStatus = "actif" | "expiré" | "en attente";
 export type RightsHolderOrder = "createdAt_desc" | "createdAt_asc";
 export type RightsHolderContentType = "movie" | "serie";
@@ -104,22 +106,15 @@ export interface RightsHolderContentItem {
   donut?: Record<string, unknown>;
 }
 
-export interface RightsHolderContentsResponse {
-  rightsholderId?: string;
-  rightsholderName?: string;
-  items?: RightsHolderContentItem[];
-  contents?: RightsHolderContentItem[];
+export interface RightsHolderContentResponse {
+  id: string;
+  firstName:string;
+  lastName:string;
+  email:string;
+  sharePercentage:number;
+  movies: FilmListItem[];
+  series: SeriesListItem[];
 }
 
-export interface RightsHolderContentsGroup {
-  rightsholderId?: string;
-  rightsholderName?: string;
-  items?: RightsHolderContentItem[];
-  contents?: RightsHolderContentItem[];
-}
 
-export interface RightsHolderContentsListResponse {
-  rightsholders?: RightsHolderContentsGroup[];
-  groups?: RightsHolderContentsGroup[];
-  items?: RightsHolderContentsGroup[];
-}
+

@@ -1,28 +1,51 @@
 import { type PaginatedResponse, type PageInfo } from "./common";
 
-export type FilmStatus = "publish" | "pause" | "draft" | "archived" | string;
+export type FilmStatus = "DRAFT" | "PROCESSING" | "PUBLISHED" | "ARCHIVED";
 
 export interface FilmListParams {
-  page: number;
-  pageSize: number;
+  page?: number;
+  pageSize?: number;
   search?: string;
   status?: FilmStatus;
   category?: string;
   sort?: string;
 }
 
-export interface FilmStats {
-  vues?: number;
-  revenus?: number;
-  locations?: number;
-  abonnements?: number;
-  [key: string]: number | undefined;
-}
+export type FilmDistributionType = "abonnement" | "location";
 
 export interface FilmGeoPoint {
   name: string;
   value: number;
 }
+
+export interface SubscriptionFilmStats {
+  subscriberViewPercentage: number;
+  totalViews: number;
+  totalMinutesWatched: number;
+  catalogTotalMinutes: number;
+  cumulativeViewMinutes: number;
+  revenue: number;
+}
+
+export interface RentalFilmStats {
+  totalRentals: number;
+  revenue: number;
+  topCountries: FilmGeoPoint[];
+}
+
+
+export type FilmStatsByType =
+  | {
+      type: "abonnement";
+      stats: SubscriptionFilmStats;
+    }
+  | {
+      type: "location";
+      stats: RentalFilmStats;
+    };
+
+
+
 
 export interface FilmListItem {
   id: string;
@@ -33,11 +56,15 @@ export interface FilmListItem {
   category: string;
   poster: string;
   hero: string;
-  stats?: FilmStats;
-  geo?: FilmGeoPoint[];
+  type: FilmDistributionType;
+  stats: FilmStatsByType;
+
   stars?: number;
   donut?: { label?: string; value: number; color?: string };
+  createdAt:string;
+  updatedAt:string;
 }
+
 
 export type FilmListResponse = PaginatedResponse<FilmListItem>;
 
@@ -69,7 +96,7 @@ export interface FilmDetail {
   poster: string;
   hero: string;
   synopsis: string;
-  stats?: FilmStats;
+  stats: FilmStatsByType;
   activity?: unknown[];
   geo?: FilmGeoPoint[];
   blockCountries?: string[];
