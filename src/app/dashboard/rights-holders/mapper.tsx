@@ -35,8 +35,6 @@ export const rightsHolderColumns: ColumnConfig<ImageRightsHolder>[] = [
       <span className="text-primary font-semibold">{holder.sharePercentage}% revenus</span>
     ),
   },
-  { key: "role", header: "RÔLE" },
-  { key: "scope", header: "COUVERTURE", className: "text-primary" },
   { key: "films", header: "FILMS" },
   { key: "series", header: "SÉRIES" },
   {

@@ -1,20 +1,23 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/ui/components/toast/ToastProvider";
 import { promosApi } from "@/lib/api/subscriptions";
 import { useAccessToken } from "@/lib/auth/useAccessToken";
 import { formatApiError } from "@/lib/api/errors";
 import type { DialogStatus } from "@/ui/components/confirmationDialog";
-import type { PromotionPayload } from "@/types/api/subscriptions";
+import type { PromotionPayload, PromotionPayloadUpdate } from "@/types/api/subscriptions";
+
+// Union type pour couvrir la création (complet) et l'update (partiel)
+type PendingPromotionData = PromotionPayload | PromotionPayloadUpdate;
 
 export function usePromoForm(id?: string) {
   const isEdit = !!id && id !== "new";
   const toast = useToast();
   const accessToken = useAccessToken();
 
-  /* ---------------- form ---------------- */
+  /* ---------------- Form Configuration ---------------- */
   const {
     control,
     handleSubmit,
@@ -30,14 +33,22 @@ export function usePromoForm(id?: string) {
     },
   });
 
-  /* ---------------- confirmation dialog ---------------- */
+  /* ---------------- UI States ---------------- */
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStatus, setDialogStatus] = useState<DialogStatus>("idle");
   const [dialogResult, setDialogResult] = useState<string | null>(null);
-  const [pendingData, setPendingData] = useState<PromotionPayload | null>(null);
+  const [pendingData, setPendingData] = useState<PendingPromotionData | null>(null);
 
+  /* ---------------- Date Formatter ---------------- */
+  const formatDateForInput = useCallback((dateInput: string | Date) => {
+    if (!dateInput) return "";
+    const d = new Date(dateInput);
+    return isNaN(d.getTime()) ? "" : d.toISOString().split('T')[0];
+  }, []);
+
+  /* ---------------- Handlers ---------------- */
   const openConfirm = handleSubmit((data) => {
-    setPendingData(data);
+    setPendingData(data); // Capture les données actuelles du formulaire
     setDialogOpen(true);
     setDialogStatus("idle");
     setDialogResult(null);
@@ -46,11 +57,12 @@ export function usePromoForm(id?: string) {
   const closeDialog = () => {
     if (dialogStatus === "loading") return;
     setDialogOpen(false);
-    setPendingData(null);
-    setDialogStatus("idle");
+    setTimeout(() => {
+      setPendingData(null);
+      setDialogStatus("idle");
+    }, 200);
   };
 
-  /* ---------------- submit ---------------- */
   const confirmSubmit = async () => {
     if (!pendingData) return;
 
@@ -58,50 +70,56 @@ export function usePromoForm(id?: string) {
 
     try {
       if (isEdit) {
-        await promosApi.update(id!, pendingData, accessToken);
+        // TypeScript accepte ici car pendingData match PlanPayloadUpdate (Partial)
+        await promosApi.update(id!, pendingData as PromotionPayloadUpdate, accessToken);
       } else {
-        await promosApi.create(pendingData, accessToken);
+        // En création, on cast vers le type complet
+        await promosApi.create(pendingData as PromotionPayload, accessToken);
       }
 
       toast.success({
         title: isEdit ? "Promotion modifiée" : "Promotion créée",
-        description: "Opération effectuée avec succès.",
+        description: "L'opération a été effectuée avec succès.",
       });
 
       setDialogStatus("success");
-      setDialogResult("Opération réussie.");
-      reset();
-      setTimeout(closeDialog, 800);
+      setDialogResult("Enregistrement réussi.");
+      
+      if (!isEdit) reset();
+      setTimeout(closeDialog, 1000);
     } catch (err) {
       const friendly = formatApiError(err);
       setDialogStatus("error");
-      setDialogResult(friendly.message || "Erreur serveur");
-      toast.error({ title: "Promotion", description: friendly.message || "Erreur serveur" });
+      setDialogResult(friendly.message);
+      toast.error({ title: "Erreur", description: friendly.message });
     }
   };
 
-  /* ---------------- pré-remplissage édition ---------------- */
+  /* ---------------- Prefill Logic ---------------- */
   useEffect(() => {
-    if (!isEdit) return;
+    if (!isEdit ) return;
+
+    let isMounted = true;
 
     promosApi
       .getById(id!, accessToken)
       .then((data) => {
+        
         reset({
           name: data.name,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          description: data.description,
+          startDate: formatDateForInput(data.startDate),
+          endDate: formatDateForInput(data.endDate),
+          description: data.description ?? "",
           isActive: data.isActive ?? true,
         });
       })
       .catch(() => {
-        toast.error({
-          title: "Chargement",
-          description: "Impossible de charger la promotion.",
-        });
+        if (!isMounted) return;
+        toast.error({ title: "Erreur", description: "Impossible de charger la promotion." });
       });
-  }, [id, accessToken, reset]);
+
+    return () => { isMounted = false; };
+  }, [id, isEdit, accessToken, reset, formatDateForInput,toast]);
 
   return {
     isEdit,

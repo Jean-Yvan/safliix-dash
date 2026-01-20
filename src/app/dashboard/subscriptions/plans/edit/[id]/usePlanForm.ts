@@ -24,7 +24,7 @@ export function usePlanForm(id:string) {
   } = useForm<PlanForm>({
     defaultValues: {
       currency: "XOF",
-      devices: 1,
+      maxSharedAccounts: 1,
       quality: "HD",
     },
   });
@@ -48,18 +48,18 @@ export function usePlanForm(id:string) {
         .then((data) => {
           reset({
             name: data.name,
-            monthlyPrice: data.price,
+            price: data.price,
             yearlyDiscount: data.yearlyDiscount,
             currency: data.currency as "XOF" | "EUR" | "USD",
-            devices: data.devices,
-            quality: data.quality,
+            maxSharedAccounts: data.maxSharedAccounts,
+            quality: data.videoQuality,
             description: data.description,
           });
         })
         .catch(() => {
           toast.error({
             title: "Chargement",
-            description: "Impossible de charger l'ayant droit.",
+            description: "Impossible de charger le plan d'abonnement.",
           });
         });
     }, [id]);
@@ -87,16 +87,18 @@ export function usePlanForm(id:string) {
     setDialogStatus("loading");
     setDialogResult(null);
 
+    console.dir(pendingPlan, { depth: 2});
+
     try {
       if(!isEdit){
         await withRetry(() =>
         plansApi.create(
           {
             name: pendingPlan.name,
-            price: pendingPlan.monthlyPrice,
+            price: pendingPlan.price,
             yearlyDiscount: pendingPlan.yearlyDiscount,
             status: "active",
-            devices: pendingPlan.devices,
+            maxSharedAccounts: pendingPlan.maxSharedAccounts,
             quality: pendingPlan.quality,
             currency: pendingPlan.currency,
           },
@@ -105,14 +107,14 @@ export function usePlanForm(id:string) {
       );
 
         setDialogStatus("success");
-        setDialogResult("Plan créé avec succès.");
+        setDialogResult("Plan mis à jour avec succès.");
 
         toast.success({
           title: "Plan",
-          description: "Plan créé avec succès.",
+          description: "Plan mis à jour avec succès.",
         });
 
-        reset();
+        reset(pendingPlan);
         setTimeout(closeDialog, 800);
       }else{
         await withRetry(() =>
@@ -121,10 +123,10 @@ export function usePlanForm(id:string) {
           {
             
             name: pendingPlan.name,
-            price: pendingPlan.monthlyPrice,
+            price: pendingPlan.price,
             yearlyDiscount: pendingPlan.yearlyDiscount,
             status: "active",
-            devices: pendingPlan.devices,
+            maxSharedAccounts: pendingPlan.maxSharedAccounts,
             quality: pendingPlan.quality,
             currency: pendingPlan.currency,
           },
@@ -140,7 +142,7 @@ export function usePlanForm(id:string) {
           description: "Plan créé avec succès.",
         });
 
-        reset();
+        reset(pendingPlan);
         setTimeout(closeDialog, 800);
       }
       

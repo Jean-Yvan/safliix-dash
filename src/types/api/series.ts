@@ -33,6 +33,7 @@ export interface SeriesListItem {
   stats: SerieStats;
   stars: number;
   donut?: { label?: string; value: number; color?: string };
+  createdAt:string;
 }
 
 export type SeriesListResponse = PaginatedResponse<SeriesListItem>;

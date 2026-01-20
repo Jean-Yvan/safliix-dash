@@ -398,12 +398,15 @@ export default function Page() {
 												required: "Le type est obligatoire",
 											}}
 											render={({ field }) => (
-												<SuggestionsInput
-													optionList={options.types}
+												<select
 													{...field}
+													onChange={(e) => field.onChange(e.target.value)}
 													value={field.value ?? ""}
 													className="input bg-base-200 border-base-300"
-												/>
+												>
+													<option value={"abonnement"}>Abonnement</option>
+													<option value={"location"}>Location</option>
+													</select>
 											)}
 										/>
 										{errors.type && <p className="text-red-600 text-sm">{errors.type.message}</p>}
@@ -416,7 +419,7 @@ export default function Page() {
 											rules={{
 												validate: (val) => {
 													if ((typeValue || "").toLowerCase() === "abonnement") return true;
-													return val !== null && val !== undefined && val !== "" ? true : "Le prix est obligatoire";
+													return val !== null && val !== undefined  ? true : "Le prix est obligatoire";
 												},
 											}}
 											render={({ field }) => (
@@ -465,12 +468,16 @@ export default function Page() {
 												required: "Le format est obligatoire",
 											}}
 											render={({ field }) => (
-												<SuggestionsInput
-													optionList={options.formats}
+												<select
 													{...field}
 													value={field.value ?? ""}
+													onChange={(e) => field.onChange(e.target.value)}
 													className="input bg-base-200 border-base-300"
-												/>
+												>
+													<option value={"COURT-METRAGE"}>COURT-METRAGE</option>
+													<option value={"LONG-METRAGE"}>LONG-METRAGE</option>
+													
+												</select>
 											)}
 										/>
 										{errors.format && <p className="text-red-600 text-sm">{errors.format.message}</p>}
@@ -589,6 +596,24 @@ export default function Page() {
 													value={field.value ?? ""}
 													className="input bg-base-200 border-base-300"
 												/>
+											)}
+										/>
+									</div>
+
+									<div>
+										<label className="label text-sm mb-1">Type du programme</label>
+										<Controller
+											name="entertainmentMode"
+											control={control}
+											render={({ field }) => (
+												<select
+													{...field}
+													onChange={(e) => field.onChange(e.target.value)}
+													className="input bg-base-200 border-base-300"
+												>
+													<option>Film</option>
+													<option>Divers</option>
+												</select>
 											)}
 										/>
 									</div>

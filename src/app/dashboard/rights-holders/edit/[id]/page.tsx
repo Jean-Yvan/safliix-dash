@@ -43,7 +43,7 @@ export default function Page() {
             <Controller
               name="firstName"
               control={control}
-              rules={{ required: "Prénom requis" }}
+              rules={{ required: isEdit ? false : "Prénom requis"  }}
               render={({ field, fieldState }) => (
                 <InputField {...field} placeholder="Prénom" error={fieldState.error?.message} />
               )}
@@ -51,7 +51,7 @@ export default function Page() {
             <Controller
               name="lastName"
               control={control}
-              rules={{ required: "Nom requis" }}
+              rules={{ required: isEdit ? false : "Nom requis" }}
               render={({ field, fieldState }) => (
                 <InputField {...field} placeholder="Nom" error={fieldState.error?.message} />
               )}
@@ -59,7 +59,7 @@ export default function Page() {
             <Controller
               name="role"
               control={control}
-              rules={{ required: "Rôle requis" }}
+              rules={{ required: false }}
               render={({ field, fieldState }) => (
                 <InputField {...field} placeholder="Rôle / fonction" error={fieldState.error?.message} />
               )}
@@ -67,7 +67,7 @@ export default function Page() {
             <Controller
               name="email"
               control={control}
-              rules={{ required: "Email requis" }}
+              rules={{ required: false }}
               render={({ field, fieldState }) => (
                 <InputField {...field} type="email" placeholder="Email" error={fieldState.error?.message} />
               )}
@@ -75,12 +75,13 @@ export default function Page() {
             <Controller
               name="phone"
               control={control}
+              rules={{ required: isEdit ? false : "Téléphone requis"}}
               render={({ field }) => <InputField {...field} placeholder="Téléphone" />}
             />
             <Controller
               name="scope"
               control={control}
-              rules={{ required: "Périmètre requis" }}
+              rules={{ required: false }}
               render={({ field, fieldState }) => (
                 <InputField {...field} placeholder="Périmètre d'usage" error={fieldState.error?.message} />
               )}
@@ -88,7 +89,7 @@ export default function Page() {
             <Controller
               name="sharePercentage"
               control={control}
-              rules={{ min: { value: 0, message: "Min 0%" } }}
+              rules={{required: isEdit ? false : "Part requis",  min: { value: 0, message: "Min 0%" } }}
               render={({ field, fieldState }) => (
                 <InputField
                   {...field}
@@ -127,7 +128,7 @@ export default function Page() {
             <Controller
               name="legal"
               control={control}
-              rules={{ required: "Mentions légales requises" }}
+              rules={{ required: false }}
               render={({ field }) => (
                 <textarea {...field} className="textarea textarea-bordered w-full" placeholder="Mentions légales" />
               )}

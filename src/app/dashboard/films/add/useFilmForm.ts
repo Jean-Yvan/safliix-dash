@@ -37,6 +37,7 @@ export type FilmFormData = {
   secondaryImage: File | null;
   trailerFile: File | null;
   movieFile: File | null;
+  entertainmentMode: string;
 };
 
 export type SubmitAction = "draft" | "publish" | "update" | "meta";

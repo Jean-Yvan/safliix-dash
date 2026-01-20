@@ -12,6 +12,7 @@ export default function InputField({
   error,
   onFocus,
   onKeyDown,
+  disabled = false,
   className
 }: Readonly<{
   type?: string;
@@ -21,6 +22,7 @@ export default function InputField({
   onKeyDown?: (e:React.KeyboardEvent<HTMLInputElement>) => void;
   error?: string;
   name: string;
+  disabled?:boolean;
   className?: string;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }>) {
@@ -39,6 +41,7 @@ export default function InputField({
         onFocus={onFocus}
         onKeyDown={onKeyDown}
         autoComplete="off"
+        disabled={disabled}
         className={`p-2 pr-10 border rounded  focus:outline-none focus:ring-2 focus:ring-primary text-[#F0EDED] w-full ${className} ${
           error ? "border-red-500" : "border-gray-300"
         }`}

@@ -56,7 +56,7 @@ export const promosApi = {
     apiRequest<PromotionItem>(`/promotions/${id}`, {accessToken,signal}),
 
   update: (id:string, payload: PromotionPayloadUpdate, accessToken?:string, signal?:AbortSignal) =>
-    apiRequest<void>(`/promotions/${id}`,{method:"POST", body:payload, accessToken, signal } ),
+    apiRequest<void>(`/promotions/${id}`,{method:"PUT", body:payload, accessToken, signal } ),
 
   delete: (id:string, accessToken?:string, signal?:AbortSignal) =>
     apiRequest<void>(`/promotions/${id}`, { method:"DELETE", accessToken,signal}),

@@ -33,12 +33,12 @@ export const columns: ColumnConfig <PlanItem>[] = [
     render: (plan) => `${plan.price * 12 - ( 1 - plan.yearlyDiscount/ 100)}`
   },
   {
-    key: "devices",
+    key: "maxSharedAccounts",
     header: "Appareils",
   },
   {
-    key: "quality",
     header: "Qualité",
+    render: (plan) => plan.videoQuality
   }
   
 ];

@@ -5,68 +5,47 @@ import {
   SubscriptionFilmStats,
   RentalFilmStats,
 } from "@/types/api/films";
+import { SeriesListItem } from "@/types/api/series";
 
 /* ============================================================
  * Type guards
  * ============================================================ */
 
-type SubscriptionStatsWrapper = {
-  type: "abonnement";
-  stats: SubscriptionFilmStats;
+export type NormalizedStats = {
+  locationsCount: number;
+  revenue: number;
+  donutViewed: number;
+  donutCatalog: number;
+  donutRevenue: number;
+  geo: {
+    label?: string;
+    value?: number;
+    max?: number;
+    color?: string;
+  }[];
 };
 
-type RentalStatsWrapper = {
-  type: "location";
-  stats: RentalFilmStats;
+type VideoCardProps = {
+  title: string;
+  poster?: string;
+  hero?: string;
+  director?: string;
+  dp?: string;
+  category?: string;
+  status: string;
+  stars?: number;
+  stats: NormalizedStats;
+  mode: "abonnement" | "location";
+  detailHref?: string;
 };
 
-const isSubscriptionStats = (
-  stats: FilmListItem["stats"]
-): stats is SubscriptionStatsWrapper =>
-  stats?.type === "abonnement";
 
-const isRentalStats = (
-  stats: FilmListItem["stats"]
-): stats is RentalStatsWrapper =>
-  stats?.type === "location";
 
 /* ============================================================
  * Helpers métier (lecture des stats)
  * ============================================================ */
 
 
-
-const extractStats = (film: FilmListItem) => {
-  const stats = film.stats;
-
-  return {
-    locationsCount:
-      stats && isRentalStats(stats) ? stats.stats.totalRentals : 0,
-
-    revenue:
-      stats?.stats.revenue ?? 0,
-
-    donutViewed:
-      stats && isSubscriptionStats(stats)
-        ? stats.stats.subscriberViewPercentage
-        : 0,
-
-    donutCatalog:
-      stats && isSubscriptionStats(stats)
-        ? stats.stats.catalogTotalMinutes
-        : 0,
-
-    donutRevenue:
-      stats && isSubscriptionStats(stats)
-        ? stats.stats.revenue
-        : 0,
-
-    geo:
-      stats && isRentalStats(stats)
-        ? stats.stats.topCountries
-        : [],
-  };
-};
 
 
 
@@ -76,16 +55,21 @@ const extractStats = (film: FilmListItem) => {
  * ============================================================ */
 
 export default function VideoCard({
-  film,
+  title,
+  poster,
+  hero,
+  director,
+  dp,
+  category,
+  status,
+  stars = 0,
+  stats,
   mode,
   detailHref,
-}: {
-  film: FilmListItem;
-  mode: "location" | "abonnement";
-  detailHref?: string;
-}) {
-  const poster = film.poster || "/image-icon.jpg";
-  const hero = film.hero || poster;
+}: VideoCardProps) {
+  const posterSrc = poster || "/image-icon.jpg";
+    //const heroSrc = hero || poster;
+
 
   const {
     locationsCount,
@@ -93,9 +77,7 @@ export default function VideoCard({
     donutViewed,
     donutCatalog,
     donutRevenue,
-    geo,
-  } = extractStats(film);
-
+  } = stats;
   const conicGradient = useMemo(() => {
     const segments = [
       { color: "#16a34a", value: donutViewed },
@@ -120,7 +102,7 @@ export default function VideoCard({
         {/* === LEFT === */}
         <div className="flex flex-col items-center gap-2">
           <img
-            src={poster}
+            src={posterSrc}
             alt="Video Poster"
             className="w-40 h-28 object-cover rounded-md"
           />
@@ -142,11 +124,11 @@ export default function VideoCard({
 
         {/* === INFO === */}
         <div className="flex-1 flex flex-col gap-1">
-          <h2 className="text-2xl font-bold">{film.title}</h2>
-          <p className="text-green-400 text-sm">{film.status}</p>
-          <p className="text-sm">Réalisé par {film.director}</p>
-          <p className="text-sm">DP : {film.dp}</p>
-          <p className="text-sm">Catégorie : {film.category}</p>
+          <h2 className="text-2xl font-bold">{title}</h2>
+          <p className="text-green-400 text-sm">{status}</p>
+          <p className="text-sm">Réalisé par {director}</p>
+          <p className="text-sm">DP : {dp}</p>
+          <p className="text-sm">Catégorie : {category}</p>
         </div>
 
         {/* === HERO === */}
@@ -192,7 +174,7 @@ export default function VideoCard({
                 <Star
                   key={i}
                   className={`w-5 h-5 ${
-                    i < (film.stars ?? 0)
+                    i < (stars ?? 0)
                       ? "fill-yellow-400 text-yellow-400"
                       : "text-yellow-400"
                   }`}

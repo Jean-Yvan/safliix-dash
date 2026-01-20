@@ -3,10 +3,10 @@ import { type PaginatedResponse } from "./common";
 
 export type PlanForm = {
   name: string;
-  monthlyPrice: number;
+  price: number;
   yearlyDiscount: number; // %
   currency: "XOF" | "EUR" | "USD";
-  devices: number;
+  maxSharedAccounts: number;
   quality: string;
   description: string;
 };
@@ -42,8 +42,8 @@ export interface PlanItem {
   name: string;
   price: number;
   status?: string;
-  devices: number;
-  quality?: string;
+  maxSharedAccounts: number;
+  videoQuality?: string;
   currency: string;
   description:string;
   yearlyDiscount: number;
@@ -58,7 +58,7 @@ export interface PlanPayload {
   price: number;
   yearlyDiscount: number;
   status: string;
-  devices?: number;
+  maxSharedAccounts: number;
   quality?: string;
   currency?: string;
 }

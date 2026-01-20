@@ -49,7 +49,7 @@ export default function Page() {
               <Controller
                 name="name"
                 control={control}
-                rules={{ required: "Nom requis" }}
+                rules={{ required: isEdit ? false : "Nom requis" }}
                 render={({ field }) => (
                   <InputField {...field} className="input bg-base-200 border-base-300" />
                 )}
@@ -62,9 +62,9 @@ export default function Page() {
             <div>
                 <label className="label text-sm mb-1">Prix</label>
                 <Controller
-                  name={`monthlyPrice`}
+                  name={`price`}
                   control={control}
-                  rules={{ required: "Prix requis", min: { value: 0, message: ">= 0" } }}
+                  rules={{ required: isEdit ? false : "Prix requis", min: { value: 0, message: ">= 0" } }}
                   render={({ field }) => (
                     <InputField
                       type="number"
@@ -75,9 +75,9 @@ export default function Page() {
                   )}
                 />
 
-                {errors.monthlyPrice && (
+                {errors.price && (
                 <p className="text-red-500 text-xs mt-1">
-                  {errors.monthlyPrice?.message}
+                  {errors.price?.message}
                 </p>
               )}
               </div>
@@ -118,8 +118,13 @@ export default function Page() {
                 <Controller
                   name="currency"
                   control={control}
+                  rules={{required:false}}
                   render={({ field }) => (
-                    <select {...field} className="select bg-base-200 border-base-300 w-full">
+                    <select 
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      
+                      className="select bg-base-200 border-base-300 w-full">
                       <option value="XOF">XOF</option>
                       <option value="EUR">EUR</option>
                       <option value="USD">USD</option>
@@ -132,13 +137,14 @@ export default function Page() {
               <div>
                 <label className="label text-sm mb-1">Appareils</label>
                 <Controller
-                  name="devices"
+                  name="maxSharedAccounts"
                   control={control}
+                  rules={{required: isEdit ? false : "Nombre minimum d'appareil requis", min: { value: 0, message: ">= 0" }, max:{ value: 100, message:"Max 100%"}}}
                   render={({ field }) => (
                     <InputField
                       type="number"
                       {...field}
-
+                      
                       onChange={(e) => field.onChange(Number(e.target.value))}
                       
                       className="input bg-base-200 border-base-300"
@@ -152,7 +158,10 @@ export default function Page() {
                 name="quality"
                 control={control}
                 render={({ field }) => (
-                  <select {...field} className="select bg-base-200 border-base-300 w-full">
+                  <select 
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value)} 
+                    className="select bg-base-200 border-base-300 w-full">
                     <option value="SD">SD</option>
                     <option value="HD">HD</option>
                     <option value="Full HD">Full HD</option>
@@ -173,9 +182,12 @@ export default function Page() {
               <Controller
                 name="description"
                 control={control}
+                rules={{required:false}}
                 render={({ field }) => (
                   <textarea
+                    
                     {...field}
+                    onChange={(e) => field.onChange(e.target.value)}
                     className="textarea bg-base-200 border-base-300 w-full min-h-[100px]"
                   />
                 )}
@@ -223,16 +235,16 @@ export default function Page() {
             </div>
             <div className="flex justify-between">
               <span className="text-white/60">Tarif</span>
-              <span>{pendingPlan.monthlyPrice} {pendingPlan.currency}</span>
+              <span>{pendingPlan.price} {pendingPlan.currency ?? "XOF"}</span>
             </div>
             
             
             <div className="flex justify-between">
               <span className="text-white/60">Appareils</span>
-              <span>{pendingPlan.devices}</span>
+              <span>{pendingPlan.maxSharedAccounts}</span>
             </div>
 
-            <p>{`L'abonnement annuel s'élèvera à ${Math.round(pendingPlan.monthlyPrice * 12 * (1 - pendingPlan.yearlyDiscount / 100))} ${pendingPlan.currency}`}</p>
+            <p>{`L'abonnement annuel s'élèvera à ${Math.round(pendingPlan.price * 12 * (1 - pendingPlan.yearlyDiscount / 100))} ${pendingPlan.currency ?? "XOF"}`}</p>
           </div>
         )}
       </ConfirmationDialog>
