@@ -210,8 +210,45 @@ export interface FilmMetadataPayload {
   blockedCountries?: string[];
 }
 
+export type FilmActor = { actorId?: string; name: string };
+
+export type FilmFormData = {
+  title: string;
+  description: string;
+  language: string;
+  productionHouse: string;
+  country: string;
+  blockCountries: string[];
+  type: string;
+  price: number | null;
+  releaseDate: string;
+  publishDate: string;
+  format: string;
+  category: string;
+  genre: string;
+  actors: FilmActor[];
+  director: string;
+  duration: number | null;
+  ageRating: string;
+  isSafliixProd: boolean;
+  haveSubtitles: boolean;
+  subtitleLanguages: string[];
+  rightHolderId?: string;
+  mainImage: File | null;
+  secondaryImage: File | null;
+  trailerFile: File | null;
+  movieFile: File | null;
+  entertainmentMode: string;
+};
+
+export type FilmPresignedSlot = {
+  key: string;        // Ex: "mainImage", "movieFile" (doit correspondre aux clés de TSlot)
+  uploadUrl: string;  // L'URL signée temporaire (ex: URL S3 avec token) pour le PUT
+  finalUrl: string;   // L'URL publique ou privée finale que le serveur enregistrera en BDD
+};
+
 export interface FilmCreateOrUpdateResponse {
   id: string;
 }
 
-export interface FilmPageInfo extends PageInfo {}
+//export interface FilmPageInfo extends PageInfo {}

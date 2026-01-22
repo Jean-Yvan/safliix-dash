@@ -15,6 +15,7 @@ import { formatApiError } from "@/lib/api/errors";
 import { withRetry } from "@/lib/api/retry";
 import { type CountryEntry, getCountries } from "@/lib/countries";
 import { type EpisodeUploadDescriptor, type SeriesMetadataPayload } from "@/types/api/series";
+import FormWithAside from "@/ui/components/formWithAside";
 
 type SeriesFormData = {
   title: string;
@@ -208,7 +209,8 @@ export default function Page() {
         </div>
       </Header>
 
-      <form
+      <FormWithAside>
+        <form
         onSubmit={handleSubmit(async (data) => {
           if (uiStep === "meta") {
             setMetaSaving(true);
@@ -233,16 +235,10 @@ export default function Page() {
           }
           openDialog("publish", data);
         })}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-neutral px-5 py-6 rounded-2xl shadow border border-base-300"
+        className="gap-6 bg-neutral px-5 py-6 rounded-2xl shadow border border-base-300"
       >
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-base-200/40 border border-base-300 rounded-xl p-4 h-full flex items-center justify-center overflow-hidden">
-            {previewUrl ? (
-              <img src={previewUrl} alt="Aperçu" className="rounded-lg max-h-full object-cover" />
-            ) : (
-              <span className="text-white/70 text-sm text-center">Ajoutez l’image principale pour l’aperçu.</span>
-            )}
-          </div>
+        <div className="space-y-6">
+          
           {uiStep === "files" && (
             <>
               <div className="grid grid-cols-6 grid-rows-2 gap-4">
@@ -290,7 +286,7 @@ export default function Page() {
           )}
         </div>
 
-        <div className="lg:col-span-8 flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <div>
             <label className="label text-sm mb-1">Nom de la série</label>
             <Controller
@@ -590,6 +586,7 @@ export default function Page() {
           </div>
         </div>
       </form>
+      </FormWithAside>
 
       <ConfirmationDialog
         open={dialogOpen}

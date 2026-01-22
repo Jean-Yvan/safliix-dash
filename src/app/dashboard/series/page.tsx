@@ -14,7 +14,7 @@ import { useToast } from "@/ui/components/toast/ToastProvider";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { RightsHolderMoviesReport, type MovieReportEntry } from "@/ui/pdf/RightsHolderMoviesReport";
 import { SeriesListItem } from "@/types/api/series";
-
+import { NormalizedStats } from "@/ui/specific/films/components/videoCard";
 
 
 
@@ -48,6 +48,31 @@ const [statusFilter, setStatusFilter] = useState<string>("all");
 const [categoryFilter, setCategoryFilter] = useState<string>("all");
 const [sortFilter, setSortFilter] = useState<"none" | "best" | "latest">("none");
 const toast = useToast();
+
+
+const extractSerieStats = (
+  serie: SeriesListItem
+): NormalizedStats => {
+  const stats = serie.stats;
+
+  return {
+    // ❌ pas de location pour une série
+    locationsCount: 0,
+
+    // 💰 revenu abonnement
+    revenue: stats.revenue,
+
+    // 🍩 donut abonnement
+    donutViewed: stats.subscriberViewPercentage,
+    donutCatalog: stats.catalogTotalMinutes,
+    donutRevenue: stats.revenue,
+
+    // ❌ pas de stats géographiques pour les séries
+    geo: [],
+  };
+};
+
+
 const buildReportEntries = (items: SeriesListItem[]): MovieReportEntry[] =>
   items.map((serie, idx) => ({
     order: `${idx + 1}`.padStart(3, "0"),
@@ -68,7 +93,7 @@ useEffect(() => {
 			setError(null);
 			try {
 				const res = await imageRightsApi.contentsList("serie", { accessToken, signal: controller.signal });
-				console.dir("[rights-holders/contents series]", res);
+				console.dir(res, {depth:2});
 				if (cancelled) return;
 				setRawSeriesByRightsholder(res);
 			} catch (err) {
@@ -241,14 +266,23 @@ const categoryOptions = useMemo(
               </div>
               {!collapsedGroups.has(group.id) ? (
                 <div className="space-y-4">
-                  {group.series.map((serie) => (
+                  {group.series.map((serie) => {
+                   const stats = extractSerieStats(serie);
+                   return(
                     <VideoCard
                       key={serie.id}
-                      film={serie}
+                      title={serie.title}
+                      poster={serie.poster}
+                      hero={serie.hero}
+                      director={serie.director}
+                      dp={serie.dp}
+                      category={serie.category}
+                      status={serie.status}
+                      stats={stats}
                       mode={mode}
                       detailHref={`/dashboard/series/detail/${serie.id}`}
-                    />
-                  ))}
+                    />)
+                  })}
                 </div>
               ) : (
                 <div className="text-xs text-white/60 italic">Liste repliée</div>

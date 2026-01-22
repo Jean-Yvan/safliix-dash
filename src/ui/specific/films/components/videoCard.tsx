@@ -1,18 +1,12 @@
 import React, { useMemo } from "react";
 import { Gauge, Play, Star, TrendingUp } from "lucide-react";
-import {
-  FilmListItem,
-  SubscriptionFilmStats,
-  RentalFilmStats,
-} from "@/types/api/films";
-import { SeriesListItem } from "@/types/api/series";
 
 /* ============================================================
  * Type guards
  * ============================================================ */
 
 export type NormalizedStats = {
-  locationsCount: number;
+  locationsCount?: number;
   revenue: number;
   donutViewed: number;
   donutCatalog: number;
@@ -135,7 +129,7 @@ export default function VideoCard({
         <div className="flex items-start gap-4 flex-[1.2]">
           <div className="relative">
             <img
-              src={hero}
+              src={hero ?? posterSrc}
               alt="scene"
               className="w-60 h-48 object-cover rounded-md"
             />
@@ -190,11 +184,11 @@ export default function VideoCard({
             <h3 className="font-semibold">Revenu géographique</h3>
 
             <div className="space-y-2">
-              {geo.map((geoItem, index) => (
+              {stats.geo.map((geoItem, index) => (
                 <div key={index} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
-                    <p>{geoItem.name}</p>
-                    <p>{geoItem.value.toLocaleString()} f</p>
+                    <p>{geoItem.label}</p>
+                    <p>{geoItem?.value?.toLocaleString()} f</p>
                   </div>
                   <progress
                     className="progress w-full"

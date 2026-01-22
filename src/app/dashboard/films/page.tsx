@@ -17,6 +17,7 @@ import type { FilmListItem } from "@/types/api/films";
 import { filmsApi } from "@/lib/api/films";
 
 import { EncodingJob } from "@/types/api/encodingJob";
+import { NormalizedStats } from "@/ui/specific/films/components/videoCard";
 
 type DistributionMode = "location" | "abonnement";
 type SortOption = "none" | "best" | "latest";
@@ -41,6 +42,77 @@ export default function Page() {
 
   const accessToken = useAccessToken();
   const toast = useToast();
+
+const extractFilmStats = (
+  film: FilmListItem
+): NormalizedStats => {
+  const stats = film.stats;
+
+  // Sécurité : film sans stats
+  if (!stats) {
+    return {
+      locationsCount: 0,
+      revenue: 0,
+      donutViewed: 0,
+      donutCatalog: 0,
+      donutRevenue: 0,
+      geo: [],
+    };
+  }
+
+  // 🎬 FILM EN ABONNEMENT
+  if (stats.type === "abonnement") {
+    const s = stats.stats;
+
+    return {
+      // ❌ pas de location
+      locationsCount: 0,
+
+      // 💰 revenu abonnement
+      revenue: s.revenue,
+
+      // 🍩 donuts abonnement
+      donutViewed: s.subscriberViewPercentage,
+      donutCatalog: s.catalogTotalMinutes,
+      donutRevenue: s.revenue,
+
+      // ❌ pas de géo en abonnement
+      geo: [],
+    };
+  }
+
+  // 🎬 FILM EN LOCATION
+  if (stats.type === "location") {
+    const s = stats.stats;
+
+    return {
+      // 📦 nombre de locations
+      locationsCount: s.totalRentals,
+
+      // 💰 revenu location
+      revenue: s.revenue,
+
+      // 🍩 donuts location
+      donutViewed: s.totalRentals,
+      donutCatalog: 0,
+      donutRevenue: s.revenue,
+
+      // 🌍 stats géographiques
+      geo: s.topCountries,
+    };
+  }
+
+  // fallback (ne devrait jamais arriver)
+  return {
+    locationsCount: 0,
+    revenue: 0,
+    donutViewed: 0,
+    donutCatalog: 0,
+    donutRevenue: 0,
+    geo: [],
+  };
+};
+
 
   useEffect(() => {
     setIsClient(true);
@@ -300,14 +372,25 @@ export default function Page() {
 
               {!collapsedGroups.has(group.id) && (
                 <div className="grid gap-3">
-                  {group.movies.map((film) => (
-                    <VideoCard 
+                  {group.movies.map((film) => {
+                    const stats = extractFilmStats(film);
+
+                    return (
+                      <VideoCard 
                       key={film.id} 
-                      film={film} 
+                      title={film.title}
+                      director={film.director}
+                      poster=""
+                      dp=""
+                      hero=""
+                      category=""
+                      stats={stats}
+                      status=""
                       mode={mode} 
                       detailHref={`/dashboard/films/detail/${film.id}`} 
                     />
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
